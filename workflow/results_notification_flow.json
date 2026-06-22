@@ -1,0 +1,211 @@
+{
+  "created": 1750360000000,
+  "updated": 1750360000000,
+  "name": "Results_Notification_Flow - greenwood-sms",
+  "description": "Triggered when teacher saves individual student marks. Notifies the parent with the detailed marks breakdown.",
+  "tags": [
+    "Greenwood Juniors",
+    "Results",
+    "Marks",
+    "Parent Notifications"
+  ],
+  "pieces": [
+    "@puchoaistudio/tool-gmail",
+    "@puchoaistudio/tool-supabase",
+    "@puchoaistudio/tool-webhook"
+  ],
+  "template": {
+    "displayName": "Results Notification Flow",
+    "trigger": {
+      "name": "trigger",
+      "type": "PIECE_TRIGGER",
+      "displayName": "Results Webhook Listener",
+      "valid": true,
+      "settings": {
+        "pieceName": "@puchoaistudio/tool-webhook",
+        "pieceVersion": "2.0.4",
+        "triggerName": "catch_webhook",
+        "input": {
+          "authType": "none"
+        },
+        "propertySettings": {
+          "authType": {
+            "type": "MANUAL"
+          },
+          "authFields": {
+            "type": "MANUAL",
+            "schema": {}
+          },
+          "liveMarkdown": {
+            "type": "MANUAL"
+          },
+          "syncMarkdown": {
+            "type": "MANUAL"
+          },
+          "testMarkdown": {
+            "type": "MANUAL"
+          }
+        },
+        "sampleData": {}
+      },
+      "nextAction": {
+        "name": "res_router",
+        "type": "ROUTER",
+        "displayName": "Check action = RESULTS_PUBLISHED",
+        "valid": true,
+        "settings": {
+          "executionType": "EXECUTE_FIRST_MATCH",
+          "branches": [
+            {
+              "name": "Results Published Branch",
+              "conditions": [
+                [
+                  {
+                    "operator": "TEXT_EXACTLY_MATCHES",
+                    "firstValue": "{{trigger['body']['action']}}",
+                    "secondValue": "RESULTS_PUBLISHED"
+                  }
+                ]
+              ]
+            }
+          ]
+        },
+        "children": [
+          {
+            "name": "res_db_persist",
+            "type": "PIECE",
+            "displayName": "Persist Marks to DB",
+            "skip": false,
+            "valid": true,
+            "settings": {
+              "pieceName": "@puchoaistudio/tool-supabase",
+              "pieceVersion": "2.0.0",
+              "actionName": "create_row",
+              "input": {
+                "table": "results",
+                "values": {
+                  "student_id": "{{trigger['body']['student']['id']}}",
+                  "exam_type": "{{trigger['body']['exam_type']}}",
+                  "subject_name": "{{trigger['body']['marks'][0]['subject']}}",
+                  "marks_obtained": "{{trigger['body']['marks'][0]['obtained']}}",
+                  "total_marks": "{{trigger['body']['marks'][0]['total']}}",
+                  "grade": "{{trigger['body']['marks'][0]['grade']}}"
+                }
+              },
+              "propertySettings": {
+                "table": {
+                  "type": "MANUAL"
+                },
+                "values": {
+                  "type": "MANUAL"
+                }
+              }
+            },
+            "nextAction": {
+              "name": "res_email_parent",
+              "type": "PIECE",
+              "displayName": "Email Marks to Parent",
+              "skip": false,
+              "valid": true,
+              "settings": {
+                "pieceName": "@puchoaistudio/tool-gmail",
+                "pieceVersion": "2.0.4",
+                "actionName": "send_email",
+                "input": {
+                  "auth": "",
+                  "to": "{{trigger['body']['parent']['email'] || 'parent@school.com'}}",
+                  "subject": "Results: {{trigger['body']['student']['name']}} - {{trigger['body']['exam_type']}}",
+                  "text": "Dear {{trigger['body']['parent']['name'] || 'Parent'}},\n\nMarks have been published for {{trigger['body']['student']['name']}}.\n\nExam: {{trigger['body']['exam_type']}}\nClass: {{trigger['body']['student']['class']}} - {{trigger['body']['student']['division']}}\nPublished By: {{trigger['body']['published_by']}}\n\nSubject: {{trigger['body']['marks'][0]['subject']}}\nMarks: {{trigger['body']['marks'][0]['obtained']}} / {{trigger['body']['marks'][0]['total']}}\nGrade: {{trigger['body']['marks'][0]['grade']}}\n\nLogin to the Parent Portal for the complete report card.\n\nWarm regards,\nGreenwood Juniors Academy"
+                },
+                "propertySettings": {
+                  "auth": {
+                    "type": "MANUAL"
+                  },
+                  "to": {
+                    "type": "MANUAL"
+                  },
+                  "subject": {
+                    "type": "MANUAL"
+                  },
+                  "text": {
+                    "type": "MANUAL"
+                  }
+                }
+              },
+              "nextAction": {
+                "name": "res_return_response",
+                "type": "PIECE",
+                "displayName": "Return Results Notification Status",
+                "skip": false,
+                "valid": true,
+                "settings": {
+                  "pieceName": "@puchoaistudio/tool-webhook",
+                  "pieceVersion": "2.0.4",
+                  "actionName": "return_response",
+                  "input": {
+                    "responseType": "json",
+                    "respond": "stop",
+                    "fields": {
+                      "success": true,
+                      "message": "Results published and parent notified successfully.",
+                      "student": "{{trigger['body']['student']['name']}}",
+                      "exam": "{{trigger['body']['exam_type']}}"
+                    }
+                  },
+                  "propertySettings": {
+                    "responseType": {
+                      "type": "MANUAL"
+                    },
+                    "respond": {
+                      "type": "MANUAL"
+                    },
+                    "fields": {
+                      "type": "MANUAL",
+                      "schema": {
+                        "success": {
+                          "type": "BOOLEAN"
+                        },
+                        "message": {
+                          "type": "SHORT_TEXT"
+                        },
+                        "student": {
+                          "type": "SHORT_TEXT"
+                        },
+                        "exam": {
+                          "type": "SHORT_TEXT"
+                        }
+                      }
+                    }
+                  }
+                },
+                "nextAction": null
+              },
+              "errorHandlingOptions": {
+                "retryOnFailure": {
+                  "value": false
+                },
+                "continueOnFailure": {
+                  "value": true
+                }
+              }
+            },
+            "errorHandlingOptions": {
+              "retryOnFailure": {
+                "value": true
+              },
+              "continueOnFailure": {
+                "value": false
+              }
+            }
+          }
+        ],
+        "nextAction": null
+      }
+    },
+    "valid": true,
+    "agentIds": [],
+    "connectionIds": [],
+    "schemaVersion": "7"
+  },
+  "blogUrl": ""
+}

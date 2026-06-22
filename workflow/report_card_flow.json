@@ -1,0 +1,181 @@
+{
+  "created": 1750360000000,
+  "updated": 1750360000000,
+  "name": "Report_Card_Flow - greenwood-sms",
+  "description": "Triggered when staff saves exam marks. Generates report cards by subject and emails them to parents.",
+  "tags": [
+    "Greenwood Juniors",
+    "Exams",
+    "Results",
+    "Report Cards",
+    "Parent Notifications"
+  ],
+  "pieces": [
+    "@puchoaistudio/tool-gmail",
+    "@puchoaistudio/tool-webhook"
+  ],
+  "template": {
+    "displayName": "Report Card Generation Flow",
+    "trigger": {
+      "name": "trigger",
+      "type": "PIECE_TRIGGER",
+      "displayName": "Report Card Webhook Listener",
+      "valid": true,
+      "settings": {
+        "pieceName": "@puchoaistudio/tool-webhook",
+        "pieceVersion": "2.0.4",
+        "triggerName": "catch_webhook",
+        "input": {
+          "authType": "none"
+        },
+        "propertySettings": {
+          "authType": {
+            "type": "MANUAL"
+          },
+          "authFields": {
+            "type": "MANUAL",
+            "schema": {}
+          },
+          "liveMarkdown": {
+            "type": "MANUAL"
+          },
+          "syncMarkdown": {
+            "type": "MANUAL"
+          },
+          "testMarkdown": {
+            "type": "MANUAL"
+          }
+        },
+        "sampleData": {}
+      },
+      "nextAction": {
+        "name": "rc_router",
+        "type": "ROUTER",
+        "displayName": "Route Report Card Action",
+        "valid": true,
+        "settings": {
+          "executionType": "EXECUTE_FIRST_MATCH",
+          "branches": [
+            {
+              "name": "Report Card Generation Branch",
+              "conditions": [
+                [
+                  {
+                    "operator": "TEXT_EXACTLY_MATCHES",
+                    "firstValue": "{{trigger['body']['action']}}",
+                    "secondValue": "REPORT_CARD_GENERATION"
+                  }
+                ]
+              ]
+            }
+          ]
+        },
+        "children": [
+          {
+            "name": "rc_loop_results",
+            "type": "LOOP_ON_ITEMS",
+            "displayName": "Loop through Results",
+            "settings": {
+              "items": "{{trigger['body']['results']}}"
+            },
+            "firstLoopAction": {
+              "name": "rc_email_parent",
+              "type": "PIECE",
+              "displayName": "Email Report Card to Parent",
+              "skip": false,
+              "valid": true,
+              "settings": {
+                "pieceName": "@puchoaistudio/tool-gmail",
+                "pieceVersion": "2.0.4",
+                "actionName": "send_email",
+                "input": {
+                  "auth": "",
+                  "to": "{{rc_loop_results['item']['parent_email'] || 'parent@school.com'}}",
+                  "subject": "Report Card: {{rc_loop_results['item']['student_name']}} - {{trigger['body']['exam_name']}}",
+                  "text": "Dear {{rc_loop_results['item']['parent_name'] || 'Parent'}},\n\nPlease find the performance report for {{rc_loop_results['item']['student_name']}}.\n\nExam: {{trigger['body']['exam_name']}}\nClass: {{trigger['body']['class']}} - {{trigger['body']['division']}}\nSubject: {{trigger['body']['subject']}}\n\nðŸ“Š Results Summary:\nSubject: {{trigger['body']['subject']}}\nMarks Obtained: {{rc_loop_results['item']['marks']}}\nGrade: {{rc_loop_results['item']['grade']}}\n\nPlease login to the Parent Portal for detailed analysis.\n\nWarm regards,\nGreenwood Juniors Academy"
+                },
+                "propertySettings": {
+                  "auth": {
+                    "type": "MANUAL"
+                  },
+                  "to": {
+                    "type": "MANUAL"
+                  },
+                  "subject": {
+                    "type": "MANUAL"
+                  },
+                  "text": {
+                    "type": "MANUAL"
+                  }
+                }
+              },
+              "nextAction": null,
+              "errorHandlingOptions": {
+                "retryOnFailure": {
+                  "value": false
+                },
+                "continueOnFailure": {
+                  "value": true
+                }
+              }
+            },
+            "nextAction": {
+              "name": "rc_return_response",
+              "type": "PIECE",
+              "displayName": "Return Report Card Status",
+              "skip": false,
+              "valid": true,
+              "settings": {
+                "pieceName": "@puchoaistudio/tool-webhook",
+                "pieceVersion": "2.0.4",
+                "actionName": "return_response",
+                "input": {
+                  "responseType": "json",
+                  "respond": "stop",
+                  "fields": {
+                    "success": true,
+                    "message": "Report cards generated and sent to all parents successfully.",
+                    "exam": "{{trigger['body']['exam_name']}}",
+                    "results_count": "{{trigger['body']['results'].length}}"
+                  }
+                },
+                "propertySettings": {
+                  "responseType": {
+                    "type": "MANUAL"
+                  },
+                  "respond": {
+                    "type": "MANUAL"
+                  },
+                  "fields": {
+                    "type": "MANUAL",
+                    "schema": {
+                      "success": {
+                        "type": "BOOLEAN"
+                      },
+                      "message": {
+                        "type": "SHORT_TEXT"
+                      },
+                      "exam": {
+                        "type": "SHORT_TEXT"
+                      },
+                      "results_count": {
+                        "type": "NUMBER"
+                      }
+                    }
+                  }
+                }
+              },
+              "nextAction": null
+            }
+          }
+        ],
+        "nextAction": null
+      }
+    },
+    "valid": true,
+    "agentIds": [],
+    "connectionIds": [],
+    "schemaVersion": "7"
+  },
+  "blogUrl": ""
+}

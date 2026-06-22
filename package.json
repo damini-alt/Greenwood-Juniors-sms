@@ -1,0 +1,21 @@
+{
+  "name": "pucho-sms-app",
+  "version": "1.0.0",
+  "description": "School Management System Dashboard",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^25.0.10",
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.99.1",
+    "dotenv": "^17.3.1",
+    "postgres": "^3.4.8"
+  }
+}

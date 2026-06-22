@@ -1,0 +1,132 @@
+{
+  "created": 1718790000000,
+  "updated": 1718790000000,
+  "name": "Parent_Portal_Flow - greenwood-sms",
+  "description": "Orchestrates parent portal events, recording and acknowledging parent RSVPs for school events.",
+  "tags": [
+    "Greenwood Juniors",
+    "Parent Portal"
+  ],
+  "pieces": [
+    "@puchoaistudio/tool-supabase",
+    "@puchoaistudio/tool-webhook"
+  ],
+  "template": {
+    "displayName": "Parent Portal Flow",
+    "trigger": {
+      "name": "trigger",
+      "type": "PIECE_TRIGGER",
+      "displayName": "Parent Webhook Listener",
+      "valid": true,
+      "settings": {
+        "pieceName": "@puchoaistudio/tool-webhook",
+        "pieceVersion": "2.0.4",
+        "triggerName": "catch_webhook",
+        "input": {
+          "authType": "none"
+        },
+        "propertySettings": {
+          "authType": {
+            "type": "MANUAL"
+          },
+          "authFields": {
+            "type": "MANUAL",
+            "schema": {}
+          },
+          "liveMarkdown": {
+            "type": "MANUAL"
+          },
+          "syncMarkdown": {
+            "type": "MANUAL"
+          },
+          "testMarkdown": {
+            "type": "MANUAL"
+          }
+        },
+        "sampleData": {}
+      },
+      "nextAction": {
+        "name": "evt_post_rsvp",
+        "type": "PIECE",
+        "displayName": "Update RSVP in DB",
+        "skip": false,
+        "valid": true,
+        "settings": {
+          "pieceName": "@puchoaistudio/tool-supabase",
+          "pieceVersion": "2.0.0",
+          "actionName": "create_row",
+          "input": {
+            "table": "event_rsvps",
+            "values": {
+              "event_id": "{{trigger['body']['payload']['event_id']}}",
+              "parent_id": "{{trigger['body']['payload']['parent_id']}}",
+              "status": "{{trigger['body']['payload']['status']}}",
+              "comments": "{{trigger['body']['payload']['comments'] || 'RSVP via portal'}}"
+            }
+          },
+          "propertySettings": {
+            "table": {
+              "type": "MANUAL"
+            },
+            "values": {
+              "type": "MANUAL"
+            }
+          }
+        },
+        "nextAction": {
+          "name": "evt_return_rsvp_response",
+          "type": "PIECE",
+          "displayName": "Acknowledge Parent RSVP",
+          "skip": false,
+          "valid": true,
+          "settings": {
+            "pieceName": "@puchoaistudio/tool-webhook",
+            "pieceVersion": "2.0.4",
+            "actionName": "return_response",
+            "input": {
+              "responseType": "json",
+              "respond": "stop",
+              "fields": {
+                "success": true,
+                "message": "Thank you for confirming your attendance! Your RSVP has been recorded."
+              }
+            },
+            "propertySettings": {
+              "responseType": {
+                "type": "MANUAL"
+              },
+              "respond": {
+                "type": "MANUAL"
+              },
+              "fields": {
+                "type": "MANUAL",
+                "schema": {
+                  "success": {
+                    "type": "BOOLEAN"
+                  },
+                  "message": {
+                    "type": "SHORT_TEXT"
+                  }
+                }
+              }
+            }
+          },
+          "nextAction": null
+        },
+        "errorHandlingOptions": {
+          "retryOnFailure": {
+            "value": true
+          },
+          "continueOnFailure": {
+            "value": false
+          }
+        }
+      }
+    },
+    "valid": true,
+    "agentIds": [],
+    "connectionIds": [],
+    "schemaVersion": "7"
+  },
+  "blogUrl": ""
+}

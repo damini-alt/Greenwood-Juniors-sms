@@ -1,0 +1,234 @@
+{
+  "created": 1750360000000,
+  "updated": 1750360000000,
+  "name": "Staff_Onboarding_Flow - greenwood-sms",
+  "description": "Triggered when admin adds or edits staff. Onboards new staff by inserting into DB, sending welcome email, and creating admin verification task.",
+  "tags": [
+    "Greenwood Juniors",
+    "Staff",
+    "Onboarding",
+    "HR"
+  ],
+  "pieces": [
+    "@puchoaistudio/tool-gmail",
+    "@puchoaistudio/tool-supabase",
+    "@puchoaistudio/tool-todos",
+    "@puchoaistudio/tool-webhook"
+  ],
+  "template": {
+    "displayName": "Staff Onboarding Flow",
+    "trigger": {
+      "name": "trigger",
+      "type": "PIECE_TRIGGER",
+      "displayName": "Staff Onboarding Webhook Listener",
+      "valid": true,
+      "settings": {
+        "pieceName": "@puchoaistudio/tool-webhook",
+        "pieceVersion": "2.0.4",
+        "triggerName": "catch_webhook",
+        "input": {
+          "authType": "none"
+        },
+        "propertySettings": {
+          "authType": {
+            "type": "MANUAL"
+          },
+          "authFields": {
+            "type": "MANUAL",
+            "schema": {}
+          },
+          "liveMarkdown": {
+            "type": "MANUAL"
+          },
+          "syncMarkdown": {
+            "type": "MANUAL"
+          },
+          "testMarkdown": {
+            "type": "MANUAL"
+          }
+        },
+        "sampleData": {}
+      },
+      "nextAction": {
+        "name": "stf_db_insert",
+        "type": "PIECE",
+        "displayName": "Upsert Staff in DB",
+        "skip": false,
+        "valid": true,
+        "settings": {
+          "pieceName": "@puchoaistudio/tool-supabase",
+          "pieceVersion": "2.0.0",
+          "actionName": "upsert_row",
+          "input": {
+            "table": "staff",
+            "on_conflict": "employee_id",
+            "values": {
+              "employee_id": "{{trigger['body']['employee_id'] || trigger['body']['id']}}",
+              "name": "{{trigger['body']['name']}}",
+              "role": "{{trigger['body']['role'] || 'Teacher'}}",
+              "subject": "{{trigger['body']['subject'] || 'General'}}",
+              "email": "{{trigger['body']['email']}}",
+              "mobile": "{{trigger['body']['phone'] || trigger['body']['mobile']}}",
+              "basic_salary": "{{trigger['body']['basic_salary'] || 25000}}",
+              "status": "Active",
+              "department": "{{trigger['body']['department'] || 'Teaching'}}",
+              "joining_date": "{{trigger['body']['joining_date'] || trigger['body']['date_joined']}}"
+            }
+          },
+          "propertySettings": {
+            "table": {
+              "type": "MANUAL"
+            },
+            "on_conflict": {
+              "type": "MANUAL"
+            },
+            "values": {
+              "type": "MANUAL"
+            }
+          }
+        },
+        "nextAction": {
+          "name": "stf_welcome_email",
+          "type": "PIECE",
+          "displayName": "Send Welcome Email to Staff",
+          "skip": false,
+          "valid": true,
+          "settings": {
+            "pieceName": "@puchoaistudio/tool-gmail",
+            "pieceVersion": "2.0.4",
+            "actionName": "send_email",
+            "input": {
+              "auth": "",
+              "to": "{{trigger['body']['email']}}",
+              "subject": "Welcome to Greenwood Juniors Academy - Staff Onboarding",
+              "text": "Dear {{trigger['body']['name']}},\n\nWelcome to the Greenwood Juniors family!\n\nWe are delighted to have you join us as {{trigger['body']['role'] || 'Teacher'}} for {{trigger['body']['subject'] || 'General'}}.\n\nYour Employee ID: {{trigger['body']['employee_id'] || trigger['body']['id']}}\nDepartment: {{trigger['body']['department'] || 'Teaching'}}\nJoining Date: {{trigger['body']['joining_date'] || 'To be confirmed'}}\n\nPlease visit the school office to complete your documentation and receive your login credentials for the Staff Portal.\n\nWe look forward to a wonderful journey together!\n\nWarm regards,\nGreenwood Juniors HR"
+            },
+            "propertySettings": {
+              "auth": {
+                "type": "MANUAL"
+              },
+              "to": {
+                "type": "MANUAL"
+              },
+              "subject": {
+                "type": "MANUAL"
+              },
+              "text": {
+                "type": "MANUAL"
+              }
+            }
+          },
+          "nextAction": {
+            "name": "stf_admin_todo",
+            "type": "PIECE",
+            "displayName": "Create HR Verification Task",
+            "skip": false,
+            "valid": true,
+            "settings": {
+              "pieceName": "@puchoaistudio/tool-todos",
+              "pieceVersion": "2.0.0",
+              "actionName": "createTodo",
+              "input": {
+                "title": "Verify Staff Onboarding: {{trigger['body']['name']}}",
+                "description": "New staff member requires verification:\n\nName: {{trigger['body']['name']}}\nRole: {{trigger['body']['role'] || 'Teacher'}}\nEmail: {{trigger['body']['email']}}\nEmployee ID: {{trigger['body']['employee_id'] || trigger['body']['id']}}\n\nPlease verify documents and assign class/division.",
+                "statusOptions": [
+                  {
+                    "name": "Review Pending",
+                    "variant": "Neutral (Gray)",
+                    "continueFlow": true
+                  },
+                  {
+                    "name": "Documents Verified",
+                    "variant": "Positive (Green)",
+                    "continueFlow": true
+                  },
+                  {
+                    "name": "On Hold",
+                    "variant": "Negative (Red)",
+                    "continueFlow": true
+                  }
+                ]
+              },
+              "propertySettings": {
+                "title": {
+                  "type": "MANUAL"
+                },
+                "description": {
+                  "type": "MANUAL"
+                },
+                "statusOptions": {
+                  "type": "MANUAL"
+                }
+              }
+            },
+            "nextAction": {
+              "name": "stf_return_response",
+              "type": "PIECE",
+              "displayName": "Return Staff Onboarding Status",
+              "skip": false,
+              "valid": true,
+              "settings": {
+                "pieceName": "@puchoaistudio/tool-webhook",
+                "pieceVersion": "2.0.4",
+                "actionName": "return_response",
+                "input": {
+                  "responseType": "json",
+                  "respond": "stop",
+                  "fields": {
+                    "success": true,
+                    "message": "Staff onboarding completed. Welcome email sent and verification task created.",
+                    "employee_id": "{{trigger['body']['employee_id'] || trigger['body']['id']}}"
+                  }
+                },
+                "propertySettings": {
+                  "responseType": {
+                    "type": "MANUAL"
+                  },
+                  "respond": {
+                    "type": "MANUAL"
+                  },
+                  "fields": {
+                    "type": "MANUAL",
+                    "schema": {
+                      "success": {
+                        "type": "BOOLEAN"
+                      },
+                      "message": {
+                        "type": "SHORT_TEXT"
+                      },
+                      "employee_id": {
+                        "type": "SHORT_TEXT"
+                      }
+                    }
+                  }
+                }
+              },
+              "nextAction": null
+            }
+          },
+          "errorHandlingOptions": {
+            "retryOnFailure": {
+              "value": false
+            },
+            "continueOnFailure": {
+              "value": true
+            }
+          }
+        },
+        "errorHandlingOptions": {
+          "retryOnFailure": {
+            "value": true
+          },
+          "continueOnFailure": {
+            "value": false
+          }
+        }
+      }
+    },
+    "valid": true,
+    "agentIds": [],
+    "connectionIds": [],
+    "schemaVersion": "7"
+  },
+  "blogUrl": ""
+}

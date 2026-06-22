@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Little Blooms - School Management System</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+
+    <!-- Console Suppressor for Tailwind CDN Warning -->
+    <script>
+        (function () {
+            const originalWarn = console.warn;
+            console.warn = function (...args) {
+                if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com should not be used in production')) return;
+                originalWarn.apply(console, args);
+            };
+        })();
+    </script>
+
+    <!-- Tailwind Play CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for Dynamic Analytics -->
+    <script src="/chart.js"></script>
+    <!-- Application Configuration -->
+    <script src="/config.js"></script>
+    <!-- PDF Generation Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Space Grotesk"', 'sans-serif'],
+                        inter: ['"Inter"', 'sans-serif'],
+                    },
+                    colors: {
+                        pucho: {
+                            dark: '#111834',      // Primary Text / Sidebar Active
+                            purple: '#8b5cf6',    // Brand Accent / Hovers
+                            blue: '#3b82f6',      // Gradients
+                            light: '#f8f9fc',     // App Background
+                        }
+                    },
+                    boxShadow: {
+                        'glow': '0 0 20px rgba(139, 92, 246, 0.15)',
+                        'subtle': '0 2px 10px rgba(0,0,0,0.05)',
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'slide-up': 'slideUp 0.4s ease-out',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer base {
+            body { 
+                background-color: #f8f9fc;
+                color: #111834;
+                font-family: "Space Grotesk", sans-serif;
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+            }
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 2px; }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); }
+
+        .glass { 
+            background-color: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .nav-link { 
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.5);
+        }
+        .btn-primary { 
+            background-color: #111834;
+            color: white;
+            padding: 0.625rem 1.5rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 0.875rem;
+            transition: all 0.3s;
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
+        }
+        .btn-primary:hover {
+            background-color: #8b5cf6;
+            transform: scale(1.05);
+        }
+        .btn-primary:active {
+            transform: scale(0.95);
+        }
+        .btn-outline { 
+            border: 1px solid rgba(17, 24, 52, 0.2);
+            color: #111834;
+            padding: 0.625rem 1.5rem;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .btn-outline:hover {
+            background-color: #111834;
+            color: white;
+        }
+
+        /* Custom Scrollable Dropdown */
+        .dropdown-container {
+            position: relative;
+            user-select: none;
+        }
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: white;
+            border: 1px solid rgba(0,0,0,0.05);
+            border-radius: 1rem;
+            margin-top: 0.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            max-height: 240px;
+            overflow-y: auto;
+            visibility: hidden;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .dropdown-menu.show {
+            visibility: visible;
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .dropdown-item {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #4b5563;
+            transition: all 0.2s;
+        }
+        .dropdown-item:hover {
+            background: #f9fafb;
+            color: #8b5cf6;
+        }
+        .dropdown-item.selected {
+            background: #f5f3ff;
+            color: #8b5cf6;
+            font-weight: 700;
+        }
+
+        /* Form Utilities */
+        .input-field {
+            width: 100%;
+            background-color: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            outline: none;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #1a1a1a;
+        }
+        .input-field:focus {
+            border-color: #8b5cf6;
+        }
+        .input-field::placeholder {
+            color: #d1d5db;
+        }
+        .label-sm {
+            display: block;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #9ca3af;
+            margin-bottom: 0.375rem;
+            margin-left: 0.25rem;
+        }
+        .cursor-zoom-in { cursor: zoom-in; }
+
+        /* Chatbot Styles */
+        #chatbot-window {
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1), 0 0 1px 1px rgba(255,255,255,0.5) inset;
+        }
+        .chat-bubble-pucho {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            border-radius: 20px 20px 4px 20px;
+        }
+        .chat-bubble-user {
+            background: #f3f4f6;
+            color: #1f2937;
+            border-radius: 20px 20px 20px 4px;
+        }
+        .typing-dot {
+            width: 4px;
+            height: 4px;
+            background: currentColor;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+        @keyframes typing {
+            0%, 100% { transform: translateY(0); opacity: 0.3; }
+            50% { transform: translateY(-4px); opacity: 1; }
+        }
+        #chatbot-toggle:hover .chat-icon { transform: scale(1.1) rotate(-5deg); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+    <style>
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+        }
+
+        @keyframes skeleton-loading {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-pucho-light min-h-screen overflow-x-hidden">
+    <script>
+        (function() {
+            const customLogo = localStorage.getItem('pucho_school_logo');
+            if (customLogo) {
+                document.addEventListener('DOMContentLoaded', () => {
+                    document.querySelectorAll('.school-logo-img').forEach(img => {
+                        img.src = customLogo;
+                    });
+                });
+            }
+        })();
+    </script>
+
+    <!-- Landing Page Section — Preschool Theme -->
+    <div id="landingSection" class="min-h-screen flex flex-col">
+
+        <!-- Header -->
+        <header class="sticky top-0 z-50 w-full glass h-20 flex items-center justify-between px-6 md:px-12 border-b border-gray-100">
+            <div class="flex items-center gap-3">
+                <img src="/images/logo.png" alt="Little Blooms Logo" class="max-h-14 max-w-full object-contain school-logo-img">
+            </div>
+
+            <nav class="hidden lg:flex items-center gap-2">
+                <a href="#home" class="nav-link">Home</a>
+                <a href="#programs" class="nav-link">Programs</a>
+                <a href="#about" class="nav-link">About Us</a>
+                <a href="#facilities" class="nav-link">Facilities</a>
+                <a href="#faculty" class="nav-link">Faculty</a>
+                <a href="#contact" class="nav-link">Contact</a>
+            </nav>
+
+            <div class="flex items-center gap-3">
+                <button onclick="router.showLogin()" class="btn-outline">Login</button>
+                <button onclick="router.showSignup()" class="btn-primary">Enroll Now</button>
+            </div>
+        </header>
+
+        <main class="flex-1">
+            <!-- Hero Section -->
+            <section id="home" class="max-w-7xl mx-auto px-6 py-16 lg:py-24 flex flex-col lg:flex-row items-center gap-12">
+                <div class="flex-1 space-y-8 animate-slide-up">
+                    <div class="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-600 rounded-full text-xs font-bold uppercase tracking-widest border border-amber-100">
+                        🌸 Admissions Open 2025–26
+                    </div>
+                    <h1 class="text-5xl md:text-7xl font-bold leading-[1.1] tracking-tight text-pucho-dark">
+                        Where Every<br>
+                        Child <span class="text-pucho-purple">Blooms</span> 🌱
+                    </h1>
+                    <p class="text-lg text-gray-500 font-inter max-w-xl leading-relaxed">
+                        A nurturing preschool that sparks curiosity, builds confidence, and lays the strongest foundation for your little one's lifelong journey of learning.
+                    </p>
+                    <div class="flex flex-wrap gap-4">
+                        <button onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})"
+                            class="btn-primary h-14 px-10 shadow-glow">
+                            Apply for Admission
+                        </button>
+                        <button onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})"
+                            class="flex items-center gap-2 h-14 px-10 border border-pucho-dark text-pucho-dark rounded-full font-bold text-sm hover:bg-pucho-dark hover:text-white transition-all">
+                            Schedule Tour
+                        </button>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="grid grid-cols-3 gap-8 pt-8 border-t border-gray-100">
+                        <div>
+                            <p class="text-3xl font-bold text-pucho-dark">500+</p>
+                            <p class="text-sm text-gray-400 font-inter">Happy Children</p>
+                        </div>
+                        <div>
+                            <p class="text-3xl font-bold text-pucho-dark">10+</p>
+                            <p class="text-sm text-gray-400 font-inter">Expert Teachers</p>
+                        </div>
+                        <div>
+                            <p class="text-3xl font-bold text-pucho-dark">12+</p>
+                            <p class="text-sm text-gray-400 font-inter">Years of Joy</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex-1 relative animate-fade-in">
+                    <div class="aspect-[4/3] bg-gradient-to-tr from-amber-100/60 to-pucho-purple/10 rounded-[48px] overflow-hidden shadow-2xl relative group">
+                        <img src="/images/hero.png" alt="Happy preschool children" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
+                        <div class="absolute inset-0 bg-gradient-to-t from-pucho-dark/30 to-transparent"></div>
+                    </div>
+                    <!-- Badge: Age Range -->
+                    <div class="absolute -bottom-6 -left-6 glass p-5 rounded-[28px] shadow-glow animate-bounce" style="animation-duration: 4s">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-2xl">👶</div>
+                            <div>
+                                <p class="font-bold text-pucho-dark text-sm">Age 1.5 – 6 Years</p>
+                                <p class="text-xs text-gray-400 font-inter">Playgroup to UKG</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Badge: Award -->
+                    <div class="absolute -top-4 -right-4 glass p-4 rounded-[24px] shadow-glow" style="animation: float 5s ease-in-out infinite; animation-delay: 1s">
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">🏆</span>
+                            <div>
+                                <p class="font-bold text-pucho-dark text-xs">Best Preschool</p>
+                                <p class="text-[10px] text-gray-400">City Award 2024</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Programs Section -->
+            <section id="programs" class="py-24 bg-gradient-to-b from-white to-amber-50/30">
+                <div class="max-w-7xl mx-auto px-6">
+                    <div class="text-center space-y-4 mb-16">
+                        <div class="inline-flex items-center gap-2 px-4 py-2 bg-pucho-purple/10 text-pucho-purple rounded-full text-xs font-bold uppercase tracking-widest">🎓 Our Programs</div>
+                        <h2 class="text-4xl md:text-5xl font-bold text-pucho-dark">Programs We Offer</h2>
+                        <p class="text-gray-500 max-w-2xl mx-auto font-inter">Age-appropriate learning journeys designed to make every stage of early childhood joyful, meaningful, and enriching.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <!-- Playgroup -->
+                        <div class="bg-white p-8 rounded-[40px] border border-gray-100 hover:border-amber-200 hover:shadow-[0_20px_40px_rgba(251,191,36,0.12)] transition-all group">
+                            <div class="w-16 h-16 rounded-3xl bg-amber-50 flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform">🧸</div>
+                            <div class="mb-2 inline-flex px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-[10px] font-bold uppercase tracking-widest">Age 1.5 – 2.5 yrs</div>
+                            <h3 class="text-xl font-bold mb-3 text-pucho-dark mt-2">Playgroup</h3>
+                            <p class="text-gray-500 text-sm font-inter leading-relaxed mb-4">First steps into the world of learning. Sensory play, stories, music, and social bonding in a warm, home-like environment.</p>
+                            <div class="space-y-2 text-xs font-inter text-gray-400">
+                                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[8px] font-bold">✓</span> Sensory Activities</div>
+                                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[8px] font-bold">✓</span> Music & Rhymes</div>
+                                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[8px] font-bold">✓</span> Parent–Child Bond Time</div>
+                            </div>
+                        </div>
+                        <!-- Nursery -->
+                        <div class="bg-white p-8 rounded-[40px] border border-gray-100 hover:border-pucho-purple/30 hover:shadow-glow transition-all group">
+                            <div class="w-16 h-16 rounded-3xl bg-purple-50 flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform">🌈</div>
+                            <div class="mb-2 inline-flex px-3 py-1 bg-purple-50 text-pucho-purple rounded-full text-[10px] font-bold uppercase tracking-widest">Age 2.5 – 3.5 yrs</div>
+                            <h3 class="text-xl font-bold mb-3 text-pucho-dark mt-2">Nursery</h3>
+                            <p class="text-gray-500 text-sm font-inter leading-relaxed mb-4">Structured play-based learning that introduces language, numbers, shapes, and colors in a fun and engaging way.</p>
+                            <div class="space-y-2 text-xs font-inter text-gray-400">
+                                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[8px] font-bold">✓</span> Pre-Reading Skills</div>
+                                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[8px] font-bold">✓</span> Art & Craft</div>
+                                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[8px] font-bold">✓</span> Outdoor Play</div>
+                            </div>
+                        </div>
+                        <!-- LKG -->
+                        <div class="bg-white p-8 rounded-[40px] border border-gray-100 hover:border-blue-200 hover:shadow-[0_20px_40px_rgba(59,130,246,0.1)] transition-all group shadow-glow">
+                            <div class="w-16 h-16 rounded-3xl bg-blue-50 flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform">✏️</div>
+                            <div class="mb-2 inline-flex px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-bold uppercase tracking-widest">Age 3.5 – 4.5 yrs</div>
+                            <h3 class="text-xl font-bold mb-3 text-pucho-dark mt-2">LKG</h3>
+                            <p class="text-gray-500 text-sm font-inter leading-relaxed mb-4">Lower Kindergarten builds early literacy and numeracy foundations through hands-on activities and structured sessions.</p>
+                            <div class="space-y-2 text-xs font-inter text-gray-400">
+                                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[8px] font-bold">✓</span> Phonics & Writing</div>
+                                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[8px] font-bold">✓</span> Number Concepts</div>
+                                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[8px] font-bold">✓</span> Science Explorations</div>
+                            </div>
+                        </div>
+                        <!-- UKG -->
+                        <div class="bg-white p-8 rounded-[40px] border border-gray-100 hover:border-green-200 hover:shadow-[0_20px_40px_rgba(22,163,74,0.1)] transition-all group">
+                            <div class="w-16 h-16 rounded-3xl bg-green-50 flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform">🎒</div>
+                            <div class="mb-2 inline-flex px-3 py-1 bg-green-50 text-green-600 rounded-full text-[10px] font-bold uppercase tracking-widest">Age 4.5 – 6 yrs</div>
+                            <h3 class="text-xl font-bold mb-3 text-pucho-dark mt-2">UKG</h3>
+                            <p class="text-gray-500 text-sm font-inter leading-relaxed mb-4">Upper Kindergarten prepares children for Grade 1 with comprehensive reading, writing, math, and critical thinking skills.</p>
+                            <div class="space-y-2 text-xs font-inter text-gray-400">
+                                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[8px] font-bold">✓</span> Full Reading & Writing</div>
+                                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[8px] font-bold">✓</span> Mathematics</div>
+                                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[8px] font-bold">✓</span> School Readiness</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Timing Info -->
+                    <div class="mt-10 p-6 bg-pucho-purple/5 border border-pucho-purple/10 rounded-[32px] flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div class="flex items-center gap-4">
+                            <span class="text-3xl">⏰</span>
+                            <div>
+                                <p class="font-bold text-pucho-dark">School Timings</p>
+                                <p class="text-sm text-gray-500 font-inter">Morning Batch: 8:00 AM – 12:00 PM &nbsp;|&nbsp; Afternoon Batch: 1:00 PM – 5:00 PM</p>
+                            </div>
+                        </div>
+                        <button onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})"
+                            class="flex items-center gap-2 bg-pucho-dark text-white px-8 py-3 rounded-full font-bold text-sm hover:scale-105 transition-all shadow-md whitespace-nowrap">
+                            Enquire Now
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- About Section -->
+            <section id="about" class="py-24 bg-white">
+                <div class="max-w-7xl mx-auto px-6 flex flex-col lg:flex-row items-center gap-16">
+                    <div class="flex-1 order-2 lg:order-1">
+                        <div class="aspect-square rounded-[48px] overflow-hidden relative shadow-2xl">
+                            <img src="/images/classroom.png" alt="Preschool Classroom" class="w-full h-full object-cover">
+                            <div class="absolute inset-0 bg-pucho-purple/10 mix-blend-multiply"></div>
+                        </div>
+                    </div>
+                    <div class="flex-1 space-y-8 order-1 lg:order-2">
+                        <div class="w-12 h-1 bg-pucho-purple rounded-full"></div>
+                        <h2 class="text-4xl md:text-5xl font-bold text-pucho-dark">A Place Where<br>Little Hearts Thrive</h2>
+                        <p class="text-gray-500 font-inter leading-relaxed text-lg italic">
+                            "Every child is born with a spark of curiosity. Our job is simply to fuel it with love, learning, and laughter."
+                        </p>
+                        <div class="space-y-4 font-inter text-gray-500">
+                            <p>Established in 2012, we have been a trusted name in early childhood education. Our philosophy combines global best practices with Indian values, creating confident, creative, and compassionate little learners.</p>
+                            <ul class="space-y-3">
+                                <li class="flex items-center gap-3">
+                                    <span class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">✓</span>
+                                    <span>Play-Based & Activity-Centered Curriculum</span>
+                                </li>
+                                <li class="flex items-center gap-3">
+                                    <span class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">✓</span>
+                                    <span>Trained & Caring Teachers (Ratio 1:8)</span>
+                                </li>
+                                <li class="flex items-center gap-3">
+                                    <span class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">✓</span>
+                                    <span>Digital Parent Portal — Real-time Updates</span>
+                                </li>
+                                <li class="flex items-center gap-3">
+                                    <span class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">✓</span>
+                                    <span>CCTV, GPS Transport & Safe Campus</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <button class="btn-outline h-14 px-10">Our Story →</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Facilities Section -->
+            <section id="facilities" class="py-24 bg-gray-50/50 overflow-hidden">
+                <div class="max-w-7xl mx-auto px-6">
+                    <div class="text-center space-y-4 mb-16">
+                        <div class="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-full text-xs font-bold uppercase tracking-widest">🏫 Our Campus</div>
+                        <h2 class="text-4xl md:text-5xl font-bold text-pucho-dark">World-Class Facilities<br>for Little Explorers</h2>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        <div class="bg-white p-8 rounded-[40px] border border-gray-100 hover:shadow-glow transition-all group">
+                            <div class="text-4xl mb-4 group-hover:scale-110 transition-transform inline-block">🛝</div>
+                            <h4 class="font-bold text-xl text-pucho-dark mb-2">Safe Play Area</h4>
+                            <p class="text-sm text-gray-500 font-inter leading-relaxed">Soft-padded indoor and outdoor play zones with age-appropriate equipment for physical development and fun.</p>
+                        </div>
+                        <div class="bg-white p-8 rounded-[40px] border border-gray-100 hover:shadow-glow transition-all group">
+                            <div class="text-4xl mb-4 group-hover:scale-110 transition-transform inline-block">🎨</div>
+                            <h4 class="font-bold text-xl text-pucho-dark mb-2">Art & Craft Studio</h4>
+                            <p class="text-sm text-gray-500 font-inter leading-relaxed">Dedicated creative studio stocked with paints, clay, papers, and materials to nurture artistic expression.</p>
+                        </div>
+                        <div class="bg-white p-8 rounded-[40px] border border-gray-100 hover:shadow-glow transition-all group">
+                            <div class="text-4xl mb-4 group-hover:scale-110 transition-transform inline-block">📚</div>
+                            <h4 class="font-bold text-xl text-pucho-dark mb-2">Reading Corner</h4>
+                            <p class="text-sm text-gray-500 font-inter leading-relaxed">Cozy reading nooks filled with colorful picture books and story collections to build early literacy habits.</p>
+                        </div>
+                        <div class="bg-white p-8 rounded-[40px] border border-gray-100 hover:shadow-glow transition-all group">
+                            <div class="text-4xl mb-4 group-hover:scale-110 transition-transform inline-block">🎵</div>
+                            <h4 class="font-bold text-xl text-pucho-dark mb-2">Music Room</h4>
+                            <p class="text-sm text-gray-500 font-inter leading-relaxed">Kids discover rhythm and melody through instruments, songs, and movement-based music programs.</p>
+                        </div>
+                        <div class="bg-white p-8 rounded-[40px] border border-gray-100 hover:shadow-glow transition-all group">
+                            <div class="text-4xl mb-4 group-hover:scale-110 transition-transform inline-block">🚌</div>
+                            <h4 class="font-bold text-xl text-pucho-dark mb-2">GPS Transport</h4>
+                            <p class="text-sm text-gray-500 font-inter leading-relaxed">Safe, air-conditioned vehicles with GPS tracking and a female attendant on every bus route.</p>
+                        </div>
+                        <div class="bg-white p-8 rounded-[40px] border border-gray-100 hover:shadow-glow transition-all group">
+                            <div class="text-4xl mb-4 group-hover:scale-110 transition-transform inline-block">📱</div>
+                            <h4 class="font-bold text-xl text-pucho-dark mb-2">Digital Parent App</h4>
+                            <p class="text-sm text-gray-500 font-inter leading-relaxed">Real-time updates on your child's attendance, activities, meals, homework, and fee status — all in one app.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Faculty Section -->
+            <section id="faculty" class="py-24 bg-white">
+                <div class="max-w-7xl mx-auto px-6">
+                    <div class="text-center space-y-4 mb-16">
+                        <div class="inline-flex items-center gap-2 px-4 py-2 bg-pucho-purple/10 text-pucho-purple rounded-full text-xs font-bold uppercase tracking-widest">👩‍🏫 Our Teachers</div>
+                        <h2 class="text-4xl md:text-5xl font-bold text-pucho-dark">Meet Our Loving Faculty</h2>
+                        <p class="text-gray-500 max-w-2xl mx-auto font-inter">Trained, certified, and passionate early childhood educators dedicated to every child's growth and happiness.</p>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+                        <div class="text-center group">
+                            <div class="w-28 h-28 bg-gradient-to-br from-pucho-purple/20 to-pucho-blue/20 rounded-full mx-auto mb-4 flex items-center justify-center text-5xl group-hover:scale-105 transition-transform shadow-md">👩</div>
+                            <h4 class="font-bold text-pucho-dark">Ms. Anjali Devi</h4>
+                            <p class="text-xs text-gray-400 font-inter mt-1">Playgroup & Nursery</p>
+                            <p class="text-[10px] font-bold text-pucho-purple mt-1">B.Ed · 8 yrs exp.</p>
+                        </div>
+                        <div class="text-center group">
+                            <div class="w-28 h-28 bg-gradient-to-br from-amber-100 to-orange-100 rounded-full mx-auto mb-4 flex items-center justify-center text-5xl group-hover:scale-105 transition-transform shadow-md">👩‍🦰</div>
+                            <h4 class="font-bold text-pucho-dark">Ms. Priya Sharma</h4>
+                            <p class="text-xs text-gray-400 font-inter mt-1">LKG & UKG Lead</p>
+                            <p class="text-[10px] font-bold text-pucho-purple mt-1">M.Ed · 11 yrs exp.</p>
+                        </div>
+                        <div class="text-center group">
+                            <div class="w-28 h-28 bg-gradient-to-br from-green-100 to-teal-100 rounded-full mx-auto mb-4 flex items-center justify-center text-5xl group-hover:scale-105 transition-transform shadow-md">👩‍🏫</div>
+                            <h4 class="font-bold text-pucho-dark">Ms. Rekha Nair</h4>
+                            <p class="text-xs text-gray-400 font-inter mt-1">Arts & Music</p>
+                            <p class="text-[10px] font-bold text-pucho-purple mt-1">Dip. ECE · 6 yrs exp.</p>
+                        </div>
+                        <div class="text-center group">
+                            <div class="w-28 h-28 bg-gradient-to-br from-pink-100 to-rose-100 rounded-full mx-auto mb-4 flex items-center justify-center text-5xl group-hover:scale-105 transition-transform shadow-md">👨‍🏫</div>
+                            <h4 class="font-bold text-pucho-dark">Mr. Rohan Mehta</h4>
+                            <p class="text-xs text-gray-400 font-inter mt-1">Physical Ed & Sports</p>
+                            <p class="text-[10px] font-bold text-pucho-purple mt-1">B.P.Ed · 5 yrs exp.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Testimonials -->
+            <section class="py-24 bg-pucho-purple/5">
+                <div class="max-w-7xl mx-auto px-6">
+                    <div class="text-center space-y-4 mb-16">
+                        <h2 class="text-4xl font-bold text-pucho-dark">What Parents Say 💬</h2>
+                        <div class="flex justify-center gap-1 text-amber-400 text-xl">
+                            <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+                        </div>
+                        <p class="text-gray-400 text-sm">Rated 4.9/5 by 200+ parent reviews</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div class="glass p-10 rounded-[40px] space-y-6">
+                            <div class="flex gap-1 text-amber-400">★★★★★</div>
+                            <p class="text-gray-500 italic font-inter">"My daughter loves going to school every day. The teachers are so warm and caring. She has grown so much in just 6 months — in confidence, speaking, and creativity!"</p>
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-full bg-pucho-purple/10 flex items-center justify-center text-xl">👩</div>
+                                <div>
+                                    <h4 class="font-bold text-sm">Mrs. Anita Verma</h4>
+                                    <p class="text-[10px] text-gray-400 uppercase font-bold">Parent of LKG Student</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass p-10 rounded-[40px] space-y-6 shadow-glow border border-pucho-purple/10">
+                            <div class="flex gap-1 text-amber-400">★★★★★</div>
+                            <p class="text-gray-500 italic font-inter">"The parent app is a game changer. I get daily photos, homework updates, and fee reminders directly on the app. As a working mom, this transparency is priceless."</p>
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-xl">👨</div>
+                                <div>
+                                    <h4 class="font-bold text-sm">Mr. Suresh Patil</h4>
+                                    <p class="text-[10px] text-gray-400 uppercase font-bold">Parent of Nursery Student</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass p-10 rounded-[40px] space-y-6">
+                            <div class="flex gap-1 text-amber-400">★★★★★</div>
+                            <p class="text-gray-500 italic font-inter">"Safe transport with GPS, CCTV cameras, and real-time updates from the teacher make me feel completely at peace. Best decision we ever made for our son."</p>
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-xl">👩</div>
+                                <div>
+                                    <h4 class="font-bold text-sm">Dr. Meena Iyer</h4>
+                                    <p class="text-[10px] text-gray-400 uppercase font-bold">Parent of Playgroup Child</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Contact / Admission Form Section -->
+            <section id="contact" class="py-24 bg-pucho-dark text-white rounded-[60px] mx-6 mb-24 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-1/2 h-full bg-white/5 skew-x-12 transform origin-top-right"></div>
+                <div class="max-w-7xl mx-auto px-10 relative z-10 flex flex-col lg:flex-row gap-20">
+                    <div class="flex-1 space-y-8">
+                        <h2 class="text-4xl md:text-6xl font-bold leading-tight">Begin Your<br>Child's Journey. 🌟</h2>
+                        <div class="space-y-6">
+                            <div class="flex items-center gap-6">
+                                <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-xl">📍</div>
+                                <p class="text-gray-300 font-inter">123 Blossom Street, Garden Colony<br>Mumbai, Maharashtra - 400001</p>
+                            </div>
+                            <div class="flex items-center gap-6">
+                                <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-xl">📞</div>
+                                <p class="text-gray-300 font-inter">+91 98765 43210</p>
+                            </div>
+                            <div class="flex items-center gap-6">
+                                <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-xl">✉️</div>
+                                <p class="text-gray-300 font-inter">admissions@preschool.edu.in</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex-1 relative group">
+                        <div class="absolute -inset-4 bg-gradient-to-tr from-pucho-purple/30 to-pucho-blue/30 rounded-[50px] blur-2xl opacity-50 group-hover:opacity-100 transition-opacity duration-700"></div>
+                        <div class="relative glass p-10 rounded-[40px] bg-white backdrop-blur-xl border border-white/50 shadow-2xl">
+                            <h3 class="text-2xl font-bold mb-2 text-pucho-dark">🎓 Admission Inquiry</h3>
+                            <p class="text-gray-400 text-sm mb-8 font-inter">Fill this form and our team will contact you within 24 hours.</p>
+                            <form class="space-y-5 font-inter" onsubmit="submitInquiry(); return false;">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <div class="space-y-1">
+                                        <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-1">Parent Name</label>
+                                        <input type="text" id="inquiryName" placeholder="Your Full Name"
+                                            class="bg-gray-50 border border-black/5 p-4 rounded-2xl w-full outline-none focus:border-pucho-purple focus:ring-4 focus:ring-pucho-purple/5 transition-all text-pucho-dark placeholder:text-gray-400">
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-1">Phone Number</label>
+                                        <input type="text" id="inquiryPhone" placeholder="+91 98765 43210"
+                                            class="bg-gray-50 border border-black/5 p-4 rounded-2xl w-full outline-none focus:border-pucho-purple focus:ring-4 focus:ring-pucho-purple/5 transition-all text-pucho-dark placeholder:text-gray-400">
+                                    </div>
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-1">Email Address</label>
+                                    <input type="email" id="inquiryEmail" placeholder="example@mail.com"
+                                        class="bg-gray-50 border border-black/5 p-4 rounded-2xl w-full outline-none focus:border-pucho-purple focus:ring-4 focus:ring-pucho-purple/5 transition-all text-pucho-dark placeholder:text-gray-400">
+                                </div>
+                                <div class="grid grid-cols-2 gap-5">
+                                    <div class="space-y-1">
+                                        <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-1">Child's Age</label>
+                                        <select id="inquiryAge" class="bg-gray-50 border border-black/5 p-4 rounded-2xl w-full outline-none focus:border-pucho-purple transition-all text-pucho-dark appearance-none cursor-pointer">
+                                            <option value="">Select Age</option>
+                                            <option>1.5 – 2.5 years</option>
+                                            <option>2.5 – 3.5 years</option>
+                                            <option>3.5 – 4.5 years</option>
+                                            <option>4.5 – 6 years</option>
+                                        </select>
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-1">Program</label>
+                                        <select id="inquiryGrade" class="bg-gray-50 border border-black/5 p-4 rounded-2xl w-full outline-none focus:border-pucho-purple transition-all text-pucho-dark appearance-none cursor-pointer">
+                                            <option value="">Select Program</option>
+                                            <option>Playgroup</option>
+                                            <option>Nursery</option>
+                                            <option>LKG</option>
+                                            <option>UKG</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <button type="submit"
+                                    class="w-full bg-pucho-dark text-white py-5 rounded-2xl font-bold hover:shadow-glow hover:bg-pucho-purple hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 uppercase tracking-widest">
+                                    Submit Inquiry 🚀
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Admission Success Modal -->
+        <div id="admissionModal"
+            class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-pucho-dark/40 backdrop-blur-sm hidden animate-fade-in">
+            <div class="bg-white p-8 w-full max-w-md rounded-[32px] border border-white/30 shadow-2xl relative animate-slide-up text-center">
+                <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">🎉</div>
+                <h3 class="text-2xl font-bold text-pucho-dark mb-2">Inquiry Submitted!</h3>
+                <p class="text-gray-500 mb-6">Our admissions team will contact you within 24 hours.</p>
+                <div class="bg-gray-50 border border-dashed border-gray-300 p-4 rounded-2xl mb-6">
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Your Reference ID</p>
+                    <p id="generatedAdmID" class="text-3xl font-bold text-pucho-purple tracking-wider">ADM-2025-XXX</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="document.getElementById('admissionModal').classList.add('hidden'); router.showSignup()"
+                        class="btn-primary w-full shadow-glow">Parent Portal →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="bg-pucho-dark text-white py-24 px-10 rounded-[60px] mx-6 mb-12 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-pucho-purple/10 to-transparent pointer-events-none"></div>
+            <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-16 font-inter relative z-10">
+                <div class="space-y-6">
+                    <img src="/images/logo.png" alt="Little Blooms Logo" class="max-h-14 max-w-full object-contain brightness-0 invert school-logo-img">
+                    <p class="text-gray-400 text-sm leading-relaxed max-w-sm">
+                        Nurturing India's youngest learners with love, play, and world-class early childhood education since 2012.
+                    </p>
+                    <div class="flex gap-4">
+                        <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-blue-600 transition-colors cursor-pointer text-xl">📘</div>
+                        <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-pink-600 transition-colors cursor-pointer text-xl">📸</div>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold uppercase tracking-widest text-pucho-purple mb-8">Programs</h4>
+                    <ul class="space-y-4 text-sm text-gray-400">
+                        <li><a href="#programs" class="hover:text-white transition-colors">Playgroup (1.5–2.5 yrs)</a></li>
+                        <li><a href="#programs" class="hover:text-white transition-colors">Nursery (2.5–3.5 yrs)</a></li>
+                        <li><a href="#programs" class="hover:text-white transition-colors">LKG (3.5–4.5 yrs)</a></li>
+                        <li><a href="#programs" class="hover:text-white transition-colors">UKG (4.5–6 yrs)</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold uppercase tracking-widest text-pucho-purple mb-8">Quick Links</h4>
+                    <ul class="space-y-4 text-sm text-gray-400">
+                        <li><a href="#about" class="hover:text-white transition-colors">About Us</a></li>
+                        <li><a href="#facilities" class="hover:text-white transition-colors">Facilities</a></li>
+                        <li><a href="#faculty" class="hover:text-white transition-colors">Our Faculty</a></li>
+                        <li><button onclick="router.showLogin()" class="hover:text-white transition-colors text-left">Parent Portal Login</button></li>
+                        <li><a href="#contact" class="hover:text-white transition-colors">Admissions 2025–26</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold uppercase tracking-widest text-pucho-purple mb-8">Contact Us</h4>
+                    <div class="space-y-4 text-sm text-gray-400">
+                        <p>📍 123 Blossom Street,<br>Garden Colony, Mumbai - 400001</p>
+                        <p>📞 +91 98765 43210</p>
+                        <p>✉️ admissions@preschool.edu.in</p>
+                    </div>
+                </div>
+            </div>
+            <div class="max-w-7xl mx-auto pt-12 mt-16 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest relative z-10">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    <span>System Online · Powered by Pucho.ai SMS</span>
+                </div>
+                <div class="flex gap-8">
+                    <span class="hover:text-white cursor-pointer transition-colors">© 2026 Preschool Management System</span>
+                    <span class="hover:text-white cursor-pointer transition-colors">Privacy Policy</span>
+                    <span class="hover:text-white cursor-pointer transition-colors">Terms of Use</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+<!-- Forgot Password Modal -->
+    <div id="forgotModal"
+        class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-[40px] p-8 md:p-10 w-full max-w-md relative shadow-2xl animate-scale-up">
+            <button onclick="document.getElementById('forgotModal').classList.add('hidden')"
+                class="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 transition-colors">
+                <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <div class="text-center mb-8">
+                <div
+                    class="w-16 h-16 bg-pucho-purple/10 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                    🔐</div>
+                <h2 class="text-2xl font-bold text-pucho-dark">Recovery</h2>
+                <p class="text-gray-500 text-sm mt-2">Enter your registered ID/Email to reset.</p>
+            </div>
+            <form onsubmit="auth.handleForgotSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1 text-gray-700">Email or Username</label>
+                    <input type="text" id="forgotEmail" required
+                        class="w-full px-4 py-3 rounded-2xl border border-black/5 bg-gray-50 focus:border-pucho-purple outline-none"
+                        placeholder="e.g. student@sms.com">
+                </div>
+                <button type="submit"
+                    class="w-full bg-pucho-dark text-white py-3 rounded-2xl font-bold hover:bg-pucho-purple transition-colors shadow-lg">
+                    Send Reset Link
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Login Modal: Premium Pucho.ai Experience -->
+    <div id="loginModal"
+        class="fixed inset-0 z-[100] hidden items-center justify-center bg-[#FAFAFF] overflow-hidden font-sans">
+
+        <!-- Full Screen Grid Pattern - Base -->
+        <div class="absolute inset-0 z-0 opacity-100 pointer-events-none"
+            style="background-image: linear-gradient(#cbd5e1 1px, transparent 1px), linear-gradient(90deg, #cbd5e1 1px, transparent 1px); background-size: 64px 64px; -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,0) 100%); mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,0) 100%);">
+        </div>
+
+        <!-- Interactive Grid Spotlight (Purple Glow) -->
+        <div id="loginSpotlight" class="absolute inset-0 z-0 pointer-events-none opacity-50"
+            style="background: radial-gradient(600px circle at 50% 50%, rgba(139, 92, 246, 0.15), transparent 40%);">
+        </div>
+
+        <!-- Ambient Gradients -->
+        <div
+            class="absolute top-0 left-0 w-[800px] h-[800px] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none -translate-x-1/2 -translate-y-1/2">
+        </div>
+        <div
+            class="absolute bottom-0 right-0 w-[800px] h-[800px] bg-blue-600/20 rounded-full blur-[120px] pointer-events-none translate-x-1/2 translate-y-1/2">
+        </div>
+
+        <!-- Close Button -->
+        <button onclick="router.hideLogin()"
+            class="absolute top-6 right-6 z-50 p-3 bg-white rounded-full shadow-sm border border-gray-100 text-gray-400 hover:text-pucho-dark transition-colors">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+
+        <!-- Floating Mascots -->
+        <div class="absolute inset-0 pointer-events-none overflow-hidden h-full w-full z-10">
+            <div class="absolute top-[12%] left-4 md:top-[8%] md:left-[5%] animate-float">
+                <div
+                    class="w-16 h-16 rounded-full overflow-hidden shadow-lg border border-white/40 bg-white/50 backdrop-blur-sm">
+                    <img src="/images/mascot_1.png" class="w-full h-full object-cover">
+                </div>
+            </div>
+            <div class="absolute top-[15%] right-4 md:right-[5%] animate-float" style="animation-delay: 1.5s">
+                <div
+                    class="w-16 h-16 rounded-full overflow-hidden shadow-lg border border-white/40 bg-white/50 backdrop-blur-sm">
+                    <img src="/images/mascot_5.png" class="w-full h-full object-cover">
+                </div>
+            </div>
+            <div class="absolute bottom-[10%] left-10 md:bottom-[15%] md:left-[8%] animate-float"
+                style="animation-delay: 0.8s">
+                <div
+                    class="w-16 h-16 rounded-full overflow-hidden shadow-lg border border-white/40 bg-white/50 backdrop-blur-sm">
+                    <img src="/images/mascot_3.png" class="w-full h-full object-cover">
+                </div>
+            </div>
+            <div class="absolute bottom-[12%] right-10 md:bottom-[8%] md:right-[10%] animate-float"
+                style="animation-delay: 2.2s">
+                <div
+                    class="w-16 h-16 rounded-full overflow-hidden shadow-lg border border-white/40 bg-white/50 backdrop-blur-sm">
+                    <img src="/images/mascot_4.png" class="w-full h-full object-cover">
+                </div>
+            </div>
+        </div>
+
+        <div class="w-full max-w-6xl mx-auto grid md:grid-cols-2 gap-12 lg:gap-24 relative z-20 items-center px-4">
+            <!-- Left Side: Pucho branding -->
+            <div class="hidden md:block space-y-8 animate-fade-in pl-12">
+                <img src="/images/logo.png" alt="Little Blooms Logo" class="max-h-20 max-w-full object-contain school-logo-img">
+                <div class="space-y-4">
+                    <div class="text-[10px] font-bold text-purple-600 tracking-wider uppercase">Little Blooms</div>
+                    <h1 class="text-6xl font-black text-pucho-dark leading-[0.9] tracking-tighter">
+                        Learn.<br>
+                        <span class="text-purple-600/80">Play.</span><br>
+                        Bloom.
+                    </h1>
+                    <p class="text-gray-500 text-sm max-w-xs font-inter leading-relaxed opacity-80">
+                        Access the parent and staff portal to stay connected with your child's learning journey.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Right Side: Login Card -->
+            <div class="flex items-center justify-center md:items-start">
+                <div
+                    class="bg-white/70 backdrop-blur-xl p-8 lg:p-12 rounded-[40px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] w-full max-w-md border border-white/50 relative overflow-hidden">
+                    <div class="mb-8">
+                        <h2 id="loginTitle" class="text-2xl font-black text-pucho-dark tracking-tight">Welcome Back</h2>
+                        <p id="loginSubtitle" class="text-gray-400 text-sm mt-1">Enter credentials to access Little Blooms Portal</p>
+                    </div>
+
+                    <form id="loginForm" class="space-y-6">
+                        <div id="roleSelector" class="space-y-1">
+                            <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-2">Login
+                                Role</label>
+                            <select id="loginRole"
+                                class="w-full bg-gray-50 border border-black/5 p-4 rounded-2xl outline-none focus:border-purple-500 transition-all appearance-none cursor-pointer">
+                                <option value="parent">Parent</option>
+                                <option value="staff">Staff / Teacher</option>
+                                <option value="admin">Administrator</option>
+                            </select>
+                        </div>
+
+                        <div id="signupFields" class="hidden animate-slide-up space-y-1">
+                            <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-2">Full
+                                Name</label>
+                            <input type="text" id="regName" placeholder="Your Name"
+                                class="w-full bg-gray-50 border border-black/5 p-4 rounded-2xl outline-none focus:border-purple-500 transition-all">
+                        </div>
+
+                        <div class="space-y-1">
+                            <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-2">Email
+                                / Username</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">👤</span>
+                                <input type="text" id="username" placeholder="Username"
+                                    class="w-full bg-gray-50 border border-black/5 p-4 pl-12 rounded-2xl outline-none focus:border-purple-500 transition-all">
+                            </div>
+                        </div>
+
+                        <div class="space-y-1">
+                            <label
+                                class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-2">Password</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔒</span>
+                                <input type="password" id="password" placeholder="••••••••"
+                                    class="w-full bg-gray-50 border border-black/5 p-4 pl-12 rounded-2xl outline-none focus:border-purple-500 transition-all">
+                            </div>
+                            <div class="flex justify-end p-1">
+                                <button type="button" onclick="auth.showForgotPass()"
+                                    class="text-[10px] font-bold text-pucho-purple hover:underline">Forgot
+                                    Password?</button>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="authSubmit"
+                            class="w-full bg-gradient-to-b from-[#5833EF] to-[#3A10CE] text-white h-14 rounded-full font-bold text-lg shadow-[0_5px_15px_rgba(58,16,206,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 relative group overflow-hidden">
+                            <!-- Gloss Effect -->
+                            <div
+                                class="absolute top-[1px] left-[1px] right-[1px] h-[26px] rounded-full pointer-events-none bg-gradient-to-b from-white/20 to-transparent z-1">
+                            </div>
+                            <span id="authText">Sign In</span>
+                            <span
+                                class="text-xl transform -rotate-45 group-hover:translate-x-1 transition-transform">→</span>
+                        </button>
+
+                        <div id="loginError"
+                            class="p-3 rounded-xl bg-red-50 text-red-600 text-[10px] font-bold text-center hidden uppercase tracking-wide">
+                            Invalid Credentials</div>
+
+                        <div class="text-center pt-4 border-t border-gray-50">
+                            <p id="authToggleText" class="text-xs text-gray-400">
+                                Don't have an account? <button type="button" onclick="router.showSignup()"
+                                    class="text-pucho-purple font-black hover:underline">Register as Parent</button>
+                            </p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mouse Interaction Script -->
+        <script>
+            document.getElementById('loginModal').addEventListener('mousemove', (e) => {
+                const spotlight = document.getElementById('loginSpotlight');
+                const x = e.clientX;
+                const y = e.clientY;
+                spotlight.style.background = `radial-gradient(600px circle at ${x}px ${y}px, rgba(139, 92, 246, 0.15), transparent 40%)`;
+            });
+        </script>
+    </div>
+
+
+    <!-- Dashboard Layout (Initially Hidden) -->
+    <div id="appShell" class="flex h-screen overflow-hidden hidden">
+        <!-- Sidebar -->
+        <aside id="sidebar"
+            class="w-[240px] h-screen bg-white border-r border-gray-100 flex flex-col fixed inset-y-0 left-0 z-30 transition-transform duration-300 lg:translate-x-0 -translate-x-full">
+            <div class="px-2 py-1 border-b border-gray-50 flex items-center justify-center h-[76px]">
+                <img src="/images/logo.png" alt="Little Blooms Logo" class="w-full h-full max-h-[70px] object-contain school-logo-img">
+            </div>
+
+            <nav id="navLinks" class="flex-1 px-4 py-6 space-y-1 overflow-y-auto custom-scrollbar">
+                <!-- Links injected here -->
+            </nav>
+
+            <div class="p-4 border-t border-gray-100 space-y-3">
+                <button onclick="auth.logout()"
+                    class="w-full flex items-center gap-3 px-3 py-2.5 rounded-3xl text-sm font-medium text-red-600 hover:bg-red-50 transition-all">
+                    <span>Log out</span>
+                </button>
+                <div class="flex items-center gap-3 p-2 rounded-2xl hover:bg-gray-50 cursor-pointer transition-colors">
+                    <div id="userAvatar"
+                        class="w-8 h-8 rounded-full bg-pucho-purple/10 flex items-center justify-center text-pucho-purple font-bold text-xs uppercase">
+                        U</div>
+                    <div class="flex-1 min-w-0">
+                        <p id="userName" class="text-sm font-bold text-pucho-dark truncate">User Name</p>
+                        <p id="userRole" class="text-[10px] text-gray-500 uppercase tracking-widest font-bold truncate">
+                            Role</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col ml-0 lg:ml-[240px] overflow-hidden relative transition-all duration-300">
+            <!-- Header -->
+            <header
+                class="sticky top-0 z-20 w-full bg-white/80 backdrop-blur-xl border-b border-gray-100 flex items-center justify-between pl-5 py-4 pr-8">
+                <div class="flex items-center gap-4 h-[44px]">
+                    <button id="menuToggle"
+                        class="lg:hidden p-1 -ml-2 mr-2 hover:bg-gray-100 rounded-full transition-colors">
+                        <svg class="w-6 h-6 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 12h16m-7 6h7"></path>
+                        </svg>
+                    </button>
+                    <div class="flex flex-col justify-center">
+                        <h1 id="pageTitle" class="text-xl font-bold text-pucho-dark leading-none mb-1">Dashboard</h1>
+                        <p id="pageDesc" class="text-sm text-gray-500 font-medium leading-none font-inter">Welcome to
+                            SMS Portal</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span
+                        class="hidden md:inline text-sm font-bold text-pucho-dark bg-pucho-purple/10 px-4 py-1.5 rounded-full">Academic
+                        Node: Alpha-24</span>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <main id="mainContent"
+                class="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 relative z-10 custom-scrollbar scroll-smooth bg-pucho-light">
+                <!-- Page Content Injected Here -->
+            </main>
+        </div>
+    </div>
+
+
+    </div>
+
+    <!-- Broadcast Modal (Communication Center) -->
+    <div id="broadcastModal"
+        class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-pucho-dark/40 backdrop-blur-sm hidden animate-fade-in shadow-glow">
+        <div
+            class="bg-white/90 backdrop-blur-xl p-8 md:p-12 w-full max-w-2xl rounded-[48px] border border-white/50 shadow-2xl relative animate-slide-up">
+            <button onclick="document.getElementById('broadcastModal').classList.add('hidden')"
+                class="absolute top-8 right-8 p-3 hover:bg-white rounded-full transition-all border border-gray-100 shadow-sm">
+                <svg class="w-6 h-6 text-pucho-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+
+            <div class="mb-10">
+                <div class="w-16 h-16 bg-pucho-purple/10 rounded-2xl flex items-center justify-center text-3xl mb-4 animate-bounce"
+                    style="animation-duration: 3s">📢</div>
+                <h1 class="text-4xl font-bold text-pucho-dark tracking-tight">Post Broadcast</h1>
+                <p class="text-gray-500 font-inter mt-2">Publish notices or circulars to the school ecosystem.</p>
+            </div>
+
+            <form id="broadcastForm" class="space-y-6 font-inter"
+                onsubmit="event.preventDefault(); dashboard.publishNotice();">
+                <div class="space-y-1">
+                    <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-2">Notice
+                        Title</label>
+                    <input type="text" id="bcTitle" required
+                        class="w-full px-6 py-4 rounded-3xl border border-black/5 bg-gray-50 focus:bg-white focus:border-pucho-purple outline-none transition-all"
+                        placeholder="e.g. Annual Day Celebration 2024">
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-2">Content /
+                        Message</label>
+                    <textarea id="bcContent" rows="4" required
+                        class="w-full px-6 py-4 rounded-3xl border border-black/5 bg-gray-50 focus:bg-white focus:border-pucho-purple outline-none transition-all resize-none"
+                        placeholder="Detail your message here..."></textarea>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-1">
+                        <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-2">Target
+                            Audience</label>
+                        <select id="bcTarget"
+                            onchange="document.getElementById('targetClassDiv').classList.toggle('hidden', this.value !== 'Student' && this.value !== 'Parent')"
+                            class="w-full px-6 py-4 rounded-3xl border border-black/5 bg-gray-50 focus:bg-white focus:border-pucho-purple outline-none cursor-pointer appearance-none transition-all">
+                            <option value="All">Everyone (Global)</option>
+                            <option value="Student">Students (via Parents)</option>
+                            <option value="Parent">Parents Only</option>
+                            <option value="Staff">Staff Only</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-2">Notice
+                            Date</label>
+                        <input type="date" id="bcDate" required
+                            class="w-full px-6 py-4 rounded-3xl border border-black/5 bg-gray-50 focus:bg-white focus:border-pucho-purple outline-none transition-all">
+                    </div>
+                </div>
+
+                <div id="targetClassDiv" class="grid grid-cols-2 gap-6 hidden animate-fade-in">
+                    <div class="space-y-1">
+                        <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-2">Class
+                            (Optional)</label>
+                        <select id="bcClass"
+                            class="w-full px-6 py-4 rounded-3xl border border-black/5 bg-gray-50 focus:bg-white focus:border-pucho-purple outline-none cursor-pointer appearance-none">
+                            <option value="">Global (All Classes)</option>
+                            <option value="Nursery">Nursery</option>
+                            <option value="KG">KG</option>
+                            <option value="1st">1st</option>
+                            <option value="2nd">2nd</option>
+                            <option value="10th">10th</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label
+                            class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-2">Division</label>
+                        <select id="bcDivision"
+                            class="w-full px-6 py-4 rounded-3xl border border-black/5 bg-gray-50 focus:bg-white focus:border-pucho-purple outline-none cursor-pointer appearance-none">
+                            <option value="">All Divisions</option>
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-4">
+                    <button type="submit"
+                        class="bg-pucho-dark text-white px-12 py-5 rounded-3xl font-bold shadow-glow hover:bg-pucho-purple hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-widest">
+                        Publish Circular
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="examModal"
+        class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-pucho-dark/40 backdrop-blur-sm hidden animate-fade-in shadow-glow">
+        <div
+            class="bg-white/95 backdrop-blur-xl p-8 md:p-10 w-full max-w-3xl rounded-[48px] border border-white/50 shadow-2xl relative animate-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <button onclick="document.getElementById('examModal').classList.add('hidden')"
+                class="absolute top-6 right-6 p-3 hover:bg-gray-100 rounded-full transition-all border border-gray-100 shadow-sm z-10">
+                <svg class="w-6 h-6 text-pucho-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+
+            <div class="mb-8">
+                <div class="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl mb-4 animate-bounce"
+                    style="animation-duration: 3s">📅</div>
+                <h1 class="text-3xl font-bold text-pucho-dark tracking-tight">Create Exam Timetable</h1>
+                <p class="text-gray-500 font-inter text-sm mt-1">Select class and add multiple subjects to the schedule.
+                </p>
+            </div>
+
+            <form id="examForm" class="space-y-8 font-inter"
+                onsubmit="event.preventDefault(); dashboard.scheduleExam();">
+                <!-- Header Info -->
+                <div
+                    class="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-gray-50/50 rounded-[32px] border border-gray-100">
+                    <div class="space-y-1 relative">
+                        <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-2">Target
+                            Class</label>
+                        <div class="relative">
+                            <input type="hidden" id="examClass" value="10th" required>
+                            <button type="button"
+                                onclick="document.getElementById('classDropdownOptions').classList.toggle('hidden')"
+                                id="classDropdownBtn"
+                                class="w-full px-5 py-3.5 rounded-2xl border border-black/5 bg-white focus:border-pucho-purple outline-none flex justify-between items-center transition-all text-sm font-medium">
+                                <span id="selectedClassText">10th</span>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div id="classDropdownOptions"
+                                class="absolute left-0 right-0 top-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl z-20 hidden max-h-48 overflow-y-auto custom-scrollbar">
+                                <div onclick="dashboard.selectExamClass('LKG')"
+                                    class="px-5 py-3 hover:bg-gray-50 cursor-pointer text-sm font-medium text-gray-700">
+                                    LKG</div>
+                                <div onclick="dashboard.selectExamClass('UKG')"
+                                    class="px-5 py-3 hover:bg-gray-50 cursor-pointer text-sm font-medium text-gray-700">
+                                    UKG</div>
+                                <div onclick="dashboard.selectExamClass('1st')"
+                                    class="px-5 py-3 hover:bg-gray-50 cursor-pointer text-sm font-medium text-gray-700">
+                                    1st</div>
+                                <div onclick="dashboard.selectExamClass('2nd')"
+                                    class="px-5 py-3 hover:bg-gray-50 cursor-pointer text-sm font-medium text-gray-700">
+                                    2nd</div>
+                                <div onclick="dashboard.selectExamClass('3rd')"
+                                    class="px-5 py-3 hover:bg-gray-50 cursor-pointer text-sm font-medium text-gray-700">
+                                    3rd</div>
+                                <div onclick="dashboard.selectExamClass('4th')"
+                                    class="px-5 py-3 hover:bg-gray-50 cursor-pointer text-sm font-medium text-gray-700">
+                                    4th</div>
+                                <div onclick="dashboard.selectExamClass('5th')"
+                                    class="px-5 py-3 hover:bg-gray-50 cursor-pointer text-sm font-medium text-gray-700">
+                                    5th</div>
+                                <div onclick="dashboard.selectExamClass('6th')"
+                                    class="px-5 py-3 hover:bg-gray-50 cursor-pointer text-sm font-medium text-gray-700">
+                                    6th</div>
+                                <div onclick="dashboard.selectExamClass('7th')"
+                                    class="px-5 py-3 hover:bg-gray-50 cursor-pointer text-sm font-medium text-gray-700">
+                                    7th</div>
+                                <div onclick="dashboard.selectExamClass('8th')"
+                                    class="px-5 py-3 hover:bg-gray-50 cursor-pointer text-sm font-medium text-gray-700">
+                                    8th</div>
+                                <div onclick="dashboard.selectExamClass('9th')"
+                                    class="px-5 py-3 hover:bg-gray-50 cursor-pointer text-sm font-medium text-gray-700">
+                                    9th</div>
+                                <div onclick="dashboard.selectExamClass('10th')"
+                                    class="px-5 py-3 hover:bg-gray-50 cursor-pointer text-sm font-medium text-gray-700">
+                                    10th</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Subjects Container -->
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between px-2">
+                        <h3 class="text-sm font-bold text-pucho-dark uppercase tracking-widest">Exam Subjects</h3>
+                        <button type="button" onclick="dashboard.addSubjectRow()"
+                            class="text-[10px] font-bold text-pucho-purple hover:underline uppercase tracking-wider">+
+                            Add Subject Row</button>
+                    </div>
+
+                    <div id="subjectRowsContainer" class="space-y-3">
+                        <!-- Rows injected here via JS -->
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-4 border-t border-gray-100">
+                    <button type="submit"
+                        class="bg-pucho-dark text-white px-10 py-4 rounded-3xl font-bold shadow-glow hover:bg-pucho-purple hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-widest text-xs">
+                        Publish Timetable
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Subject Master Modal -->
+    <div id="subjectModal"
+        class="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-pucho-dark/40 backdrop-blur-sm hidden animate-fade-in shadow-glow">
+        <div
+            class="bg-white/95 backdrop-blur-xl p-8 md:p-10 w-full max-w-md rounded-[48px] border border-white/50 shadow-2xl relative animate-slide-up">
+            <button onclick="document.getElementById('subjectModal').classList.add('hidden')"
+                class="absolute top-6 right-6 p-3 hover:bg-gray-100 rounded-full transition-all border border-gray-100 shadow-sm z-10">
+                <svg class="w-6 h-6 text-pucho-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+
+            <div class="mb-8">
+                <div class="w-14 h-14 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center text-2xl mb-4 animate-bounce"
+                    style="animation-duration: 3s">📚</div>
+                <h1 class="text-3xl font-bold text-pucho-dark tracking-tight">Add New Subject</h1>
+                <p class="text-gray-500 font-inter text-sm mt-1">Define subjects to be used in exam scheduling.</p>
+            </div>
+
+            <form id="subjectForm" class="space-y-6 font-inter">
+                <div class="space-y-4">
+                    <div class="space-y-1">
+                        <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-2">Subject
+                            Name</label>
+                        <input type="text" id="addSubjectName" required placeholder="e.g. Mathematics"
+                            class="w-full px-5 py-3.5 rounded-2xl border border-black/5 bg-gray-50/50 focus:bg-white focus:border-pucho-purple outline-none transition-all text-sm font-medium">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-2">Target
+                            Class</label>
+                        <select id="addSubjectClass" required
+                            class="w-full px-5 py-3.5 rounded-2xl border border-black/5 bg-gray-50/50 focus:bg-white focus:border-pucho-purple outline-none cursor-pointer appearance-none text-sm font-medium">
+                            <option value="">Select Class</option>
+                            <option value="LKG">LKG</option>
+                            <option value="UKG">UKG</option>
+                            <option value="1st">1st</option>
+                            <option value="2nd">2nd</option>
+                            <option value="3rd">3rd</option>
+                            <option value="4th">4th</option>
+                            <option value="5th">5th</option>
+                            <option value="6th">6th</option>
+                            <option value="7th">7th</option>
+                            <option value="8th">8th</option>
+                            <option value="9th">9th</option>
+                            <option value="10th">10th</option>
+
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-4">
+                    <button type="submit"
+                        class="w-full bg-pucho-dark text-white px-10 py-4 rounded-3xl font-bold shadow-glow hover:bg-pucho-purple hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-widest text-xs">
+                        Save Subject
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Password Update Modal -->
+    <div id="passwordModal" class="fixed inset-0 z-[120] hidden flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div class="bg-white/90 backdrop-blur-xl rounded-[40px] p-10 w-full max-w-md relative shadow-2xl animate-scale-up border border-white/50">
+            <button onclick="document.getElementById('passwordModal').classList.add('hidden')"
+                class="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 transition-colors">
+                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-pucho-purple/10 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl">🛡️</div>
+                <h2 class="text-2xl font-black text-pucho-dark">Credential Shield</h2>
+                <p class="text-gray-500 text-sm mt-2 font-inter">Update your authentication password globally.</p>
+            </div>
+            <form id="passwordForm" onsubmit="event.preventDefault(); dashboard.submitNewPassword();" class="space-y-6 font-inter">
+                <div class="space-y-1">
+                    <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-2">New Password</label>
+                    <input type="password" id="newPassword" required
+                        class="w-full px-5 py-4 rounded-2xl border border-black/5 bg-gray-50 focus:bg-white focus:border-pucho-purple outline-none transition-all"
+                        placeholder="••••••••">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] uppercase font-black tracking-widest text-pucho-purple ml-2">Confirm Password</label>
+                    <input type="password" id="confirmPassword" required
+                        class="w-full px-5 py-4 rounded-2xl border border-black/5 bg-gray-50 focus:bg-white focus:border-pucho-purple outline-none transition-all"
+                        placeholder="••••••••">
+                </div>
+                <button type="submit"
+                    class="w-full bg-pucho-dark text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-pucho-purple transition-all shadow-glow active:scale-[0.98]">
+                    Sync Security Update
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // Inquiry Logic
+        function submitInquiry() {
+            const name = document.getElementById('inquiryName').value;
+            const email = document.getElementById('inquiryEmail').value;
+            const phone = document.getElementById('inquiryPhone').value;
+            const grade = document.getElementById('inquiryGrade').value;
+
+            if (!name || !email || !grade) {
+                alert("Please fill in all required details.");
+                return;
+            }
+
+            // Generate Mock Admission ID
+            const admID = "ADM-" + new Date().getFullYear() + "-" + Math.floor(1000 + Math.random() * 9000);
+
+            const newAdmission = {
+                id: admID,
+                studentName: "Child of " + name, // Mock child name
+                parentName: name,
+                email: email,
+                phone: phone,
+                grade: grade,
+                status: 'Pending',
+                date: new Date().toLocaleDateString()
+            };
+
+            // Trigger Pucho Studio Webhook
+            const webhookUrl = window.appConfig?.webhooks?.admission || 'https://studio.pucho.ai/api/v1/webhooks/E8KpVRMhoKlQlqnGJsb5x';
+            const payload = {
+                action: "NEW_ADMISSION_INQUIRY",
+                admissionId: admID,
+                parentName: name,
+                parentEmail: email,
+                phone: phone,
+                grade: grade,
+                date: new Date().toLocaleDateString()
+            };
+
+            fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(response => {
+                if (response.ok) {
+                    console.log("Admission inquiry sent to Pucho Studio!");
+                }
+            }).catch(error => {
+                console.error("Webhook Failed:", error);
+            });
+
+            // Push to SchoolDB (simulating backend)
+            schoolDB.admissions.push(newAdmission);
+
+            // Show Success Modal
+            document.getElementById('generatedAdmID').innerText = admID;
+            document.getElementById('admissionModal').classList.remove('hidden');
+
+            // Clear Form
+            document.getElementById('inquiryName').value = "";
+            document.getElementById('inquiryEmail').value = "";
+            document.getElementById('inquiryPhone').value = "";
+        }
+
+        // Router helper for the Landing Page
+        const router = {
+            showLogin: function () {
+                const modal = document.getElementById('loginModal');
+                document.getElementById('loginTitle').innerText = "System Login";
+                document.getElementById('loginSubtitle').innerText = "Select your role and enter credentials";
+                document.getElementById('roleSelector').classList.remove('hidden');
+                document.getElementById('signupFields').classList.add('hidden');
+                document.getElementById('authSubmit').innerText = "Sign In";
+                document.getElementById('authToggleText').innerHTML = `Don't have an account? <button type="button" onclick="router.showSignup()" class="text-pucho-purple font-black hover:underline">Register as Parent</button>`;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            },
+            showSignup: function () {
+                const modal = document.getElementById('loginModal');
+                document.getElementById('loginTitle').innerText = "Parent Registration";
+                document.getElementById('loginSubtitle').innerText = "Enroll your child and track academic growth";
+                document.getElementById('roleSelector').classList.add('hidden');
+                document.getElementById('signupFields').classList.remove('hidden');
+                document.getElementById('authSubmit').innerText = "Create Parent Account";
+                document.getElementById('authToggleText').innerHTML = `Already have an account? <button type="button" onclick="router.showLogin()" class="text-pucho-purple font-black hover:underline">Sign In Instead</button>`;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            },
+            hideLogin: function () {
+                const modal = document.getElementById('loginModal');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                document.getElementById('loginError').classList.add('hidden');
+            }
+        };
+        window.router = router;
+    </script>
+    <script>
+        // Global Toast Notification System
+        window.showToast = function (message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const box = document.createElement('div');
+            box.className = `pointer-events-auto min-w-[320px] max-w-sm p-4 rounded-2xl shadow-2xl transform transition-all duration-300 translate-x-full opacity-0 flex items-start gap-4 border backdrop-blur-md`;
+
+            // Theme Colors
+            if (type === 'success') {
+                box.classList.add('bg-white/90', 'border-green-100', 'text-pucho-dark');
+                box.innerHTML = `<div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 flex-shrink-0">✓</div>`;
+            } else if (type === 'error') {
+                box.classList.add('bg-white/90', 'border-red-100', 'text-pucho-dark');
+                box.innerHTML = `<div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 flex-shrink-0">✕</div>`;
+            } else {
+                box.classList.add('bg-white/90', 'border-pucho-purple/20', 'text-pucho-dark');
+                box.innerHTML = `<div class="w-8 h-8 rounded-full bg-pucho-purple/10 flex items-center justify-center text-pucho-purple flex-shrink-0">ℹ️</div>`;
+            }
+
+            box.innerHTML += `<div><h4 class="font-bold text-sm">${type === 'error' ? 'Something went wrong' : 'Notification'}</h4><p class="text-sm text-gray-500 mt-1 leading-snug">${message.replace(/\n/g, '<br>')}</p></div>`;
+
+            container.appendChild(box);
+
+            // Animate In
+            requestAnimationFrame(() => {
+                box.classList.remove('translate-x-full', 'opacity-0');
+            });
+
+            // Auto Dismiss
+            setTimeout(() => {
+                box.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => box.remove(), 300);
+            }, 4000);
+        };
+    </script>
+
+    <script type="module" src="./data.js"></script>
+    <script type="module" src="./auth.js"></script>
+    <script type="module" src="./dashboard.js"></script>
+    <!-- Image Lightbox Modal -->
+    <div id="imageLightboxModal" 
+        class="fixed inset-0 z-[110] hidden flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in"
+        onclick="this.classList.add('hidden')">
+        <button class="absolute top-6 right-6 text-white/50 hover:text-white transition-colors" onclick="document.getElementById('imageLightboxModal').classList.add('hidden')">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+        <img id="lightboxImage" src="" class="max-w-full max-h-full rounded-2xl shadow-2xl animate-scale-up" onclick="event.stopPropagation()">
+    </div>
+
+    <div id="toastContainer" class="fixed top-24 right-6 z-[100] flex flex-col gap-4 pointer-events-none"></div>
+
+</body>
+
+</html>

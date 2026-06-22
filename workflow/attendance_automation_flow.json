@@ -1,0 +1,263 @@
+{
+  "created": 1750360000000,
+  "updated": 1750360000000,
+  "name": "Attendance_Automation_Flow - greenwood-sms",
+  "description": "Triggered when staff marks attendance. Loops through records, identifies absent students, and notifies parents via Gmail.",
+  "tags": [
+    "Greenwood Juniors",
+    "Staff",
+    "Attendance",
+    "Parent Notifications"
+  ],
+  "pieces": [
+    "@puchoaistudio/tool-gmail",
+    "@puchoaistudio/tool-webhook"
+  ],
+  "template": {
+    "displayName": "Attendance Automation Flow",
+    "trigger": {
+      "name": "trigger",
+      "type": "PIECE_TRIGGER",
+      "displayName": "Attendance Webhook Listener",
+      "valid": true,
+      "settings": {
+        "pieceName": "@puchoaistudio/tool-webhook",
+        "pieceVersion": "2.0.4",
+        "triggerName": "catch_webhook",
+        "input": {
+          "authType": "none"
+        },
+        "propertySettings": {
+          "authType": {
+            "type": "MANUAL"
+          },
+          "authFields": {
+            "type": "MANUAL",
+            "schema": {}
+          },
+          "liveMarkdown": {
+            "type": "MANUAL"
+          },
+          "syncMarkdown": {
+            "type": "MANUAL"
+          },
+          "testMarkdown": {
+            "type": "MANUAL"
+          }
+        },
+        "sampleData": {}
+      },
+      "nextAction": {
+        "name": "att_router",
+        "type": "ROUTER",
+        "displayName": "Check action = STAFF_ATTENDANCE_AUTOMATION",
+        "valid": true,
+        "settings": {
+          "executionType": "EXECUTE_FIRST_MATCH",
+          "branches": [
+            {
+              "name": "Attendance Automation Branch",
+              "conditions": [
+                [
+                  {
+                    "operator": "TEXT_EXACTLY_MATCHES",
+                    "firstValue": "{{trigger['body']['action']}}",
+                    "secondValue": "STAFF_ATTENDANCE_AUTOMATION"
+                  }
+                ]
+              ]
+            }
+          ]
+        },
+        "children": [
+          {
+            "name": "att_loop_records",
+            "type": "LOOP_ON_ITEMS",
+            "displayName": "Loop through Attendance Records",
+            "settings": {
+              "items": "{{trigger['body']['records']}}"
+            },
+            "firstLoopAction": {
+              "name": "att_check_absent",
+              "type": "ROUTER",
+              "displayName": "Is Student Absent?",
+              "valid": true,
+              "settings": {
+                "executionType": "EXECUTE_FIRST_MATCH",
+                "branches": [
+                  {
+                    "name": "Absent Branch",
+                    "conditions": [
+                      [
+                        {
+                          "operator": "TEXT_EXACTLY_MATCHES",
+                          "firstValue": "{{att_loop_records['item']['status']}}",
+                          "secondValue": "Absent"
+                        }
+                      ]
+                    ]
+                  },
+                  {
+                    "name": "Late Branch",
+                    "conditions": [
+                      [
+                        {
+                          "operator": "TEXT_EXACTLY_MATCHES",
+                          "firstValue": "{{att_loop_records['item']['status']}}",
+                          "secondValue": "Late"
+                        }
+                      ]
+                    ]
+                  }
+                ]
+              },
+              "children": [
+                {
+                  "name": "att_email_absent",
+                  "type": "PIECE",
+                  "displayName": "Email Absent Notification",
+                  "skip": false,
+                  "valid": true,
+                  "settings": {
+                    "pieceName": "@puchoaistudio/tool-gmail",
+                    "pieceVersion": "2.0.4",
+                    "actionName": "send_email",
+                    "input": {
+                      "auth": "",
+                      "to": "{{att_loop_records['item']['parent_email'] || 'parent@school.com'}}",
+                      "subject": "Absence Alert: {{att_loop_records['item']['student_name']}} - {{trigger['body']['date']}}",
+                      "text": "Dear {{att_loop_records['item']['parent_name'] || 'Parent'}},\n\nThis is to inform you that {{att_loop_records['item']['student_name']}} was marked Absent on {{trigger['body']['date']}} in {{trigger['body']['class']}}.\n\nPlease ensure your child's regular attendance for consistent academic progress.\n\nClass: {{trigger['body']['class']}}\nMarked By: {{trigger['body']['teacher']}}\n\nIf this is due to illness, kindly submit a leave application via the parent portal.\n\nWarm regards,\nGreenwood Juniors Academy"
+                    },
+                    "propertySettings": {
+                      "auth": {
+                        "type": "MANUAL"
+                      },
+                      "to": {
+                        "type": "MANUAL"
+                      },
+                      "subject": {
+                        "type": "MANUAL"
+                      },
+                      "text": {
+                        "type": "MANUAL"
+                      }
+                    }
+                  },
+                  "nextAction": null,
+                  "errorHandlingOptions": {
+                    "retryOnFailure": {
+                      "value": false
+                    },
+                    "continueOnFailure": {
+                      "value": true
+                    }
+                  }
+                },
+                {
+                  "name": "att_email_late",
+                  "type": "PIECE",
+                  "displayName": "Email Late Arrival Notification",
+                  "skip": false,
+                  "valid": true,
+                  "settings": {
+                    "pieceName": "@puchoaistudio/tool-gmail",
+                    "pieceVersion": "2.0.4",
+                    "actionName": "send_email",
+                    "input": {
+                      "auth": "",
+                      "to": "{{att_loop_records['item']['parent_email'] || 'parent@school.com'}}",
+                      "subject": "Late Arrival: {{att_loop_records['item']['student_name']}} - {{trigger['body']['date']}}",
+                      "text": "Dear {{att_loop_records['item']['parent_name'] || 'Parent'}},\n\n{{att_loop_records['item']['student_name']}} arrived Late to school today ({{trigger['body']['date']}}).\n\nClass: {{trigger['body']['class']}}\nMarked By: {{trigger['body']['teacher']}}\n\nPlease ensure timely arrival for your child's benefit.\n\nWarm regards,\nGreenwood Juniors Academy"
+                    },
+                    "propertySettings": {
+                      "auth": {
+                        "type": "MANUAL"
+                      },
+                      "to": {
+                        "type": "MANUAL"
+                      },
+                      "subject": {
+                        "type": "MANUAL"
+                      },
+                      "text": {
+                        "type": "MANUAL"
+                      }
+                    }
+                  },
+                  "nextAction": null,
+                  "errorHandlingOptions": {
+                    "retryOnFailure": {
+                      "value": false
+                    },
+                    "continueOnFailure": {
+                      "value": true
+                    }
+                  }
+                }
+              ],
+              "nextAction": null
+            },
+            "nextAction": {
+              "name": "att_return_response",
+              "type": "PIECE",
+              "displayName": "Return Attendance Summary",
+              "skip": false,
+              "valid": true,
+              "settings": {
+                "pieceName": "@puchoaistudio/tool-webhook",
+                "pieceVersion": "2.0.4",
+                "actionName": "return_response",
+                "input": {
+                  "responseType": "json",
+                  "respond": "stop",
+                  "fields": {
+                    "success": true,
+                    "message": "Attendance processed. Absent/Late parents notified where applicable.",
+                    "class": "{{trigger['body']['class']}}",
+                    "date": "{{trigger['body']['date']}}",
+                    "records_processed": "{{trigger['body']['records'].length}}"
+                  }
+                },
+                "propertySettings": {
+                  "responseType": {
+                    "type": "MANUAL"
+                  },
+                  "respond": {
+                    "type": "MANUAL"
+                  },
+                  "fields": {
+                    "type": "MANUAL",
+                    "schema": {
+                      "success": {
+                        "type": "BOOLEAN"
+                      },
+                      "message": {
+                        "type": "SHORT_TEXT"
+                      },
+                      "class": {
+                        "type": "SHORT_TEXT"
+                      },
+                      "date": {
+                        "type": "SHORT_TEXT"
+                      },
+                      "records_processed": {
+                        "type": "NUMBER"
+                      }
+                    }
+                  }
+                }
+              },
+              "nextAction": null
+            }
+          }
+        ],
+        "nextAction": null
+      }
+    },
+    "valid": true,
+    "agentIds": [],
+    "connectionIds": [],
+    "schemaVersion": "7"
+  },
+  "blogUrl": ""
+}

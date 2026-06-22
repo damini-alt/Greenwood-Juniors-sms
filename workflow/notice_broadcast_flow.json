@@ -1,0 +1,222 @@
+{
+  "created": 1750360000000,
+  "updated": 1750360000000,
+  "name": "Notice_Broadcast_Flow - greenwood-sms",
+  "description": "Triggered when admin publishes a notice. Loops through recipients and sends email/SMS notifications to parents and staff.",
+  "tags": [
+    "Greenwood Juniors",
+    "Communication",
+    "Notices",
+    "Broadcast"
+  ],
+  "pieces": [
+    "@puchoaistudio/tool-gmail",
+    "@puchoaistudio/tool-supabase",
+    "@puchoaistudio/tool-webhook"
+  ],
+  "template": {
+    "displayName": "Notice Broadcast Flow",
+    "trigger": {
+      "name": "trigger",
+      "type": "PIECE_TRIGGER",
+      "displayName": "Notice Broadcast Webhook Listener",
+      "valid": true,
+      "settings": {
+        "pieceName": "@puchoaistudio/tool-webhook",
+        "pieceVersion": "2.0.4",
+        "triggerName": "catch_webhook",
+        "input": {
+          "authType": "none"
+        },
+        "propertySettings": {
+          "authType": {
+            "type": "MANUAL"
+          },
+          "authFields": {
+            "type": "MANUAL",
+            "schema": {}
+          },
+          "liveMarkdown": {
+            "type": "MANUAL"
+          },
+          "syncMarkdown": {
+            "type": "MANUAL"
+          },
+          "testMarkdown": {
+            "type": "MANUAL"
+          }
+        },
+        "sampleData": {}
+      },
+      "nextAction": {
+        "name": "notice_router",
+        "type": "ROUTER",
+        "displayName": "Route Notice Broadcast Action",
+        "valid": true,
+        "settings": {
+          "executionType": "EXECUTE_FIRST_MATCH",
+          "branches": [
+            {
+              "name": "Notice Published Branch",
+              "conditions": [
+                [
+                  {
+                    "operator": "TEXT_EXACTLY_MATCHES",
+                    "firstValue": "{{trigger['body']['action']}}",
+                    "secondValue": "NOTICE_PUBLISHED"
+                  }
+                ]
+              ]
+            }
+          ]
+        },
+        "children": [
+          {
+            "name": "notice_db_store",
+            "type": "PIECE",
+            "displayName": "Store Notice in DB",
+            "skip": false,
+            "valid": true,
+            "settings": {
+              "pieceName": "@puchoaistudio/tool-supabase",
+              "pieceVersion": "2.0.0",
+              "actionName": "create_row",
+              "input": {
+                "table": "notices",
+                "values": {
+                  "title": "{{trigger['body']['notice']['title']}}",
+                  "content": "{{trigger['body']['notice']['content'] || trigger['body']['notice']['description']}}",
+                  "target": "{{trigger['body']['notice']['target'] || 'All'}}",
+                  "audience": "{{trigger['body']['notice']['audience'] || 'All'}}",
+                  "class": "{{trigger['body']['notice']['class'] || 'All'}}",
+                  "division": "{{trigger['body']['notice']['division'] || 'All'}}",
+                  "priority": "{{trigger['body']['notice']['priority'] || 'Medium'}}",
+                  "date": "{{trigger['body']['notice']['date'] || trigger['body']['published_at']}}"
+                }
+              },
+              "propertySettings": {
+                "table": {
+                  "type": "MANUAL"
+                },
+                "values": {
+                  "type": "MANUAL"
+                }
+              }
+            },
+            "nextAction": {
+              "name": "notice_loop_recipients",
+              "type": "LOOP_ON_ITEMS",
+              "displayName": "Loop through Recipients",
+              "settings": {
+                "items": "{{trigger['body']['recipients']}}"
+              },
+              "firstLoopAction": {
+                "name": "notice_email_recipient",
+                "type": "PIECE",
+                "displayName": "Send Notice Email",
+                "skip": false,
+                "valid": true,
+                "settings": {
+                  "pieceName": "@puchoaistudio/tool-gmail",
+                  "pieceVersion": "2.0.4",
+                  "actionName": "send_email",
+                  "input": {
+                    "auth": "",
+                    "to": "{{notice_loop_recipients['item']['email']}}",
+                    "subject": "[Greenwood Juniors] {{trigger['body']['notice']['title']}}",
+                    "text": "Dear {{notice_loop_recipients['item']['name'] || (notice_loop_recipients['item']['type'] || 'Community Member')}},\n\n{{trigger['body']['notice']['content'] || trigger['body']['notice']['description']}}\n\n---\nAudience: {{trigger['body']['notice']['target'] || 'All'}}\nPublished: {{trigger['body']['notice']['date'] || 'Today'}}\n\nPlease visit the portal for more details.\n\nWarm regards,\nGreenwood Juniors Academy"
+                  },
+                  "propertySettings": {
+                    "auth": {
+                      "type": "MANUAL"
+                    },
+                    "to": {
+                      "type": "MANUAL"
+                    },
+                    "subject": {
+                      "type": "MANUAL"
+                    },
+                    "text": {
+                      "type": "MANUAL"
+                    }
+                  }
+                },
+                "nextAction": null,
+                "errorHandlingOptions": {
+                  "retryOnFailure": {
+                    "value": false
+                  },
+                  "continueOnFailure": {
+                    "value": true
+                  }
+                }
+              },
+              "nextAction": {
+                "name": "notice_return_response",
+                "type": "PIECE",
+                "displayName": "Return Broadcast Status",
+                "skip": false,
+                "valid": true,
+                "settings": {
+                  "pieceName": "@puchoaistudio/tool-webhook",
+                  "pieceVersion": "2.0.4",
+                  "actionName": "return_response",
+                  "input": {
+                    "responseType": "json",
+                    "respond": "stop",
+                    "fields": {
+                      "success": true,
+                      "message": "Notice broadcast completed. Notifications sent to all recipients.",
+                      "notice_title": "{{trigger['body']['notice']['title']}}",
+                      "recipients_count": "{{trigger['body']['recipients'].length}}"
+                    }
+                  },
+                  "propertySettings": {
+                    "responseType": {
+                      "type": "MANUAL"
+                    },
+                    "respond": {
+                      "type": "MANUAL"
+                    },
+                    "fields": {
+                      "type": "MANUAL",
+                      "schema": {
+                        "success": {
+                          "type": "BOOLEAN"
+                        },
+                        "message": {
+                          "type": "SHORT_TEXT"
+                        },
+                        "notice_title": {
+                          "type": "SHORT_TEXT"
+                        },
+                        "recipients_count": {
+                          "type": "NUMBER"
+                        }
+                      }
+                    }
+                  }
+                },
+                "nextAction": null
+              }
+            },
+            "errorHandlingOptions": {
+              "retryOnFailure": {
+                "value": true
+              },
+              "continueOnFailure": {
+                "value": false
+              }
+            }
+          }
+        ],
+        "nextAction": null
+      }
+    },
+    "valid": true,
+    "agentIds": [],
+    "connectionIds": [],
+    "schemaVersion": "7"
+  },
+  "blogUrl": ""
+}

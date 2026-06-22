@@ -1,0 +1,320 @@
+{
+  "created": 1750360000000,
+  "updated": 1750360000000,
+  "name": "Exam_Schedule_Flow - greenwood-sms",
+  "description": "Triggered when admin publishes or updates exam schedules. Persists exams to DB, loops through recipients, and emails parents with exam timetable.",
+  "tags": [
+    "Greenwood Juniors",
+    "Exams",
+    "Timetable",
+    "Parent Notifications"
+  ],
+  "pieces": [
+    "@puchoaistudio/tool-gmail",
+    "@puchoaistudio/tool-supabase",
+    "@puchoaistudio/tool-webhook"
+  ],
+  "template": {
+    "displayName": "Exam Schedule Flow",
+    "trigger": {
+      "name": "trigger",
+      "type": "PIECE_TRIGGER",
+      "displayName": "Exam Schedule Webhook Listener",
+      "valid": true,
+      "settings": {
+        "pieceName": "@puchoaistudio/tool-webhook",
+        "pieceVersion": "2.0.4",
+        "triggerName": "catch_webhook",
+        "input": {
+          "authType": "none"
+        },
+        "propertySettings": {
+          "authType": { "type": "MANUAL" },
+          "authFields": { "type": "MANUAL", "schema": {} },
+          "liveMarkdown": { "type": "MANUAL" },
+          "syncMarkdown": { "type": "MANUAL" },
+          "testMarkdown": { "type": "MANUAL" }
+        },
+        "sampleData": {}
+      },
+      "nextAction": {
+        "name": "exam_build_payloads",
+        "type": "CODE",
+        "displayName": "Build Exam DB Payloads + Schedule Text",
+        "skip": false,
+        "valid": true,
+        "settings": {
+          "input": {
+            "exam_schedule": "{{trigger['body']['exam_schedule']}}"
+          },
+          "sourceCode": {
+            "code": "export const code = async (inputs) => {\n  const schedule = inputs.exam_schedule || [];\n  const payloads = schedule.map(e => ({\n    title: `${e.subject} (${e.time || 'TBD'})`,\n    subject: e.subject,\n    class: e.class,\n    date: e.date || e.period_start,\n    start_date: e.period_start || e.date,\n    start_time: e.start_time,\n    end_time: e.end_time,\n    time: e.time,\n    venue: e.venue || 'N/A',\n    exam_type: e.exam_type || 'Term Exam',\n    status: e.status || 'Scheduled'\n  }));\n  const scheduleLines = schedule.map(e => `Subject: ${e.subject}\\nDate: ${e.date}\\nTime: ${e.time || (e.start_time + ' - ' + e.end_time)}`).join('\\n\\n');\n  const scheduleText = `The following exams have been scheduled:\\n\\n${scheduleLines}\\n\\nPlease ensure your child is prepared and arrives on time.`;\n  return { payloads, count: payloads.length, scheduleText };\n};",
+            "packageJson": "{}"
+          },
+          "propertySettings": {
+            "sourceCode": { "type": "MANUAL" }
+          }
+        },
+        "nextAction": {
+          "name": "exam_router",
+          "type": "ROUTER",
+          "displayName": "Route Exam Action Type",
+          "valid": true,
+          "settings": {
+            "executionType": "EXECUTE_FIRST_MATCH",
+            "branches": [
+              {
+                "name": "Exam Published Branch",
+                "conditions": [
+                  [
+                    {
+                      "operator": "TEXT_EXACTLY_MATCHES",
+                      "firstValue": "{{trigger['body']['action']}}",
+                      "secondValue": "Exam Published"
+                    }
+                  ]
+                ]
+              },
+              {
+                "name": "Exam Updated Branch",
+                "conditions": [
+                  [
+                    {
+                      "operator": "TEXT_EXACTLY_MATCHES",
+                      "firstValue": "{{trigger['body']['action']}}",
+                      "secondValue": "Exam Updated"
+                    }
+                  ]
+                ]
+              }
+            ]
+          },
+          "children": [
+            {
+              "name": "exam_loop_schedule_published",
+              "type": "LOOP_ON_ITEMS",
+              "displayName": "Loop through Exam Schedule Items",
+              "settings": {
+                "items": "{{exam_build_payloads['payloads']}}"
+              },
+              "firstLoopAction": {
+                "name": "exam_db_post_published",
+                "type": "PIECE",
+                "displayName": "Save Exam to DB",
+                "skip": false,
+                "valid": true,
+                "settings": {
+                  "pieceName": "@puchoaistudio/tool-supabase",
+                  "pieceVersion": "2.0.0",
+                  "actionName": "create_row",
+                  "input": {
+                    "table": "exams",
+                    "values": "{{exam_loop_schedule_published['item']}}"
+                  },
+                  "propertySettings": {
+                    "table": { "type": "MANUAL" },
+                    "values": { "type": "MANUAL" }
+                  },
+                  "errorHandlingOptions": {
+                    "retryOnFailure": { "value": true },
+                    "continueOnFailure": { "value": false }
+                  }
+                },
+                "nextAction": null
+              },
+              "nextAction": {
+                "name": "exam_loop_recipients_published",
+                "type": "LOOP_ON_ITEMS",
+                "displayName": "Loop through Recipients",
+                "settings": {
+                  "items": "{{trigger['body']['recipients']}}"
+                },
+                "firstLoopAction": {
+                  "name": "exam_email_parent_published",
+                  "type": "PIECE",
+                  "displayName": "Send Exam Schedule Email",
+                  "skip": false,
+                  "valid": true,
+                  "settings": {
+                    "pieceName": "@puchoaistudio/tool-gmail",
+                    "pieceVersion": "2.0.4",
+                    "actionName": "send_email",
+                    "input": {
+                      "auth": "",
+                      "to": "{{exam_loop_recipients_published['item']['parent_email'] || 'parent@school.com'}}",
+                      "subject": "Exam Schedule: {{trigger['body']['target_class']}} - Greenwood Juniors",
+                      "text": "Dear {{exam_loop_recipients_published['item']['parent_name'] || 'Parent'}},\n\nThe exam schedule for {{trigger['body']['target_class']}} has been published.\n\n{{exam_build_payloads['scheduleText']}}\n\nWarm regards,\nGreenwood Juniors Academy"
+                    },
+                    "propertySettings": {
+                      "auth": { "type": "MANUAL" },
+                      "to": { "type": "MANUAL" },
+                      "subject": { "type": "MANUAL" },
+                      "text": { "type": "MANUAL" }
+                    },
+                    "errorHandlingOptions": {
+                      "retryOnFailure": { "value": false },
+                      "continueOnFailure": { "value": true }
+                    }
+                  },
+                  "nextAction": null
+                },
+                "nextAction": {
+                  "name": "exam_return_response_published",
+                  "type": "PIECE",
+                  "displayName": "Return Exam Schedule Status",
+                  "skip": false,
+                  "valid": true,
+                  "settings": {
+                    "pieceName": "@puchoaistudio/tool-webhook",
+                    "pieceVersion": "2.0.4",
+                    "actionName": "return_response",
+                    "input": {
+                      "responseType": "json",
+                      "respond": "stop",
+                      "fields": {
+                        "success": true,
+                        "message": "Exam schedule published and parents notified successfully.",
+                        "target_class": "{{trigger['body']['target_class']}}",
+                        "subjects_count": "{{trigger['body']['exam_schedule'].length}}",
+                        "recipients_count": "{{trigger['body']['recipients'].length}}"
+                      }
+                    },
+                    "propertySettings": {
+                      "responseType": { "type": "MANUAL" },
+                      "respond": { "type": "MANUAL" },
+                      "fields": {
+                        "type": "MANUAL",
+                        "schema": {
+                          "success": { "type": "BOOLEAN" },
+                          "message": { "type": "SHORT_TEXT" },
+                          "target_class": { "type": "SHORT_TEXT" },
+                          "subjects_count": { "type": "NUMBER" },
+                          "recipients_count": { "type": "NUMBER" }
+                        }
+                      }
+                    }
+                  },
+                  "nextAction": null
+                }
+              }
+            },
+            {
+              "name": "exam_loop_schedule_updated",
+              "type": "LOOP_ON_ITEMS",
+              "displayName": "Loop through Exam Schedule Items",
+              "settings": {
+                "items": "{{exam_build_payloads['payloads']}}"
+              },
+              "firstLoopAction": {
+                "name": "exam_db_post_updated",
+                "type": "PIECE",
+                "displayName": "Save Exam to DB",
+                "skip": false,
+                "valid": true,
+                "settings": {
+                  "pieceName": "@puchoaistudio/tool-supabase",
+                  "pieceVersion": "2.0.0",
+                  "actionName": "create_row",
+                  "input": {
+                    "table": "exams",
+                    "values": "{{exam_loop_schedule_updated['item']}}"
+                  },
+                  "propertySettings": {
+                    "table": { "type": "MANUAL" },
+                    "values": { "type": "MANUAL" }
+                  },
+                  "errorHandlingOptions": {
+                    "retryOnFailure": { "value": true },
+                    "continueOnFailure": { "value": false }
+                  }
+                },
+                "nextAction": null
+              },
+              "nextAction": {
+                "name": "exam_loop_recipients_updated",
+                "type": "LOOP_ON_ITEMS",
+                "displayName": "Loop through Recipients",
+                "settings": {
+                  "items": "{{trigger['body']['recipients']}}"
+                },
+                "firstLoopAction": {
+                  "name": "exam_email_parent_updated",
+                  "type": "PIECE",
+                  "displayName": "Send Exam Schedule Email",
+                  "skip": false,
+                  "valid": true,
+                  "settings": {
+                    "pieceName": "@puchoaistudio/tool-gmail",
+                    "pieceVersion": "2.0.4",
+                    "actionName": "send_email",
+                    "input": {
+                      "auth": "",
+                      "to": "{{exam_loop_recipients_updated['item']['parent_email'] || 'parent@school.com'}}",
+                      "subject": "Exam Schedule: {{trigger['body']['target_class']}} - Greenwood Juniors",
+                      "text": "Dear {{exam_loop_recipients_updated['item']['parent_name'] || 'Parent'}},\n\nThe exam schedule for {{trigger['body']['target_class']}} has been updated.\n\n{{exam_build_payloads['scheduleText']}}\n\nWarm regards,\nGreenwood Juniors Academy"
+                    },
+                    "propertySettings": {
+                      "auth": { "type": "MANUAL" },
+                      "to": { "type": "MANUAL" },
+                      "subject": { "type": "MANUAL" },
+                      "text": { "type": "MANUAL" }
+                    },
+                    "errorHandlingOptions": {
+                      "retryOnFailure": { "value": false },
+                      "continueOnFailure": { "value": true }
+                    }
+                  },
+                  "nextAction": null
+                },
+                "nextAction": {
+                  "name": "exam_return_response_updated",
+                  "type": "PIECE",
+                  "displayName": "Return Exam Schedule Status",
+                  "skip": false,
+                  "valid": true,
+                  "settings": {
+                    "pieceName": "@puchoaistudio/tool-webhook",
+                    "pieceVersion": "2.0.4",
+                    "actionName": "return_response",
+                    "input": {
+                      "responseType": "json",
+                      "respond": "stop",
+                      "fields": {
+                        "success": true,
+                        "message": "Exam schedule updated and parents notified successfully.",
+                        "target_class": "{{trigger['body']['target_class']}}",
+                        "subjects_count": "{{trigger['body']['exam_schedule'].length}}",
+                        "recipients_count": "{{trigger['body']['recipients'].length}}"
+                      }
+                    },
+                    "propertySettings": {
+                      "responseType": { "type": "MANUAL" },
+                      "respond": { "type": "MANUAL" },
+                      "fields": {
+                        "type": "MANUAL",
+                        "schema": {
+                          "success": { "type": "BOOLEAN" },
+                          "message": { "type": "SHORT_TEXT" },
+                          "target_class": { "type": "SHORT_TEXT" },
+                          "subjects_count": { "type": "NUMBER" },
+                          "recipients_count": { "type": "NUMBER" }
+                        }
+                      }
+                    }
+                  },
+                  "nextAction": null
+                }
+              }
+            }
+          ],
+          "nextAction": null
+        }
+      }
+    },
+    "valid": true,
+    "agentIds": [],
+    "connectionIds": [],
+    "schemaVersion": "7"
+  },
+  "blogUrl": ""
+}

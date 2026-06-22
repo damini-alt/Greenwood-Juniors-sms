@@ -1,0 +1,202 @@
+{
+  "created": 1750360000000,
+  "updated": 1750360000000,
+  "name": "Homework_Upload_Flow - greenwood-sms",
+  "description": "Triggered when staff uploads new homework. Persists to DB, loops through pre-fetched recipients, and sends email notifications with homework details.",
+  "tags": [
+    "Greenwood Juniors",
+    "Homework",
+    "Staff",
+    "Parent Notifications"
+  ],
+  "pieces": [
+    "@puchoaistudio/tool-gmail",
+    "@puchoaistudio/tool-supabase",
+    "@puchoaistudio/tool-webhook"
+  ],
+  "template": {
+    "displayName": "Homework Upload Flow",
+    "trigger": {
+      "name": "trigger",
+      "type": "PIECE_TRIGGER",
+      "displayName": "Homework Webhook Listener",
+      "valid": true,
+      "settings": {
+        "pieceName": "@puchoaistudio/tool-webhook",
+        "pieceVersion": "2.0.4",
+        "triggerName": "catch_webhook",
+        "input": {
+          "authType": "none"
+        },
+        "propertySettings": {
+          "authType": {
+            "type": "MANUAL"
+          },
+          "authFields": {
+            "type": "MANUAL",
+            "schema": {}
+          },
+          "liveMarkdown": {
+            "type": "MANUAL"
+          },
+          "syncMarkdown": {
+            "type": "MANUAL"
+          },
+          "testMarkdown": {
+            "type": "MANUAL"
+          }
+        },
+        "sampleData": {}
+      },
+      "nextAction": {
+        "name": "hw_db_persist",
+        "type": "PIECE",
+        "displayName": "Save Homework to DB",
+        "skip": false,
+        "valid": true,
+        "settings": {
+          "pieceName": "@puchoaistudio/tool-supabase",
+          "pieceVersion": "2.0.0",
+          "actionName": "create_row",
+          "input": {
+            "table": "homework",
+            "values": {
+              "id": "{{trigger['body']['homework']['id'] || 'HW-' + new Date().getTime()}}",
+              "title": "{{trigger['body']['homework']['title']}}",
+              "description": "{{trigger['body']['homework']['description']}}",
+              "subject": "{{trigger['body']['homework']['subject'] || 'General'}}",
+              "class_grade": "{{trigger['body']['homework']['class']}}",
+              "division": "{{trigger['body']['homework']['division'] || 'All'}}",
+              "assigned_by": "{{trigger['body']['homework']['teacher']}}",
+              "due_date": "{{trigger['body']['homework']['due_date']}}",
+              "file_url": "{{trigger['body']['homework']['pdf_link'] || ''}}",
+              "status": "Active"
+            }
+          },
+          "propertySettings": {
+            "table": {
+              "type": "MANUAL"
+            },
+            "values": {
+              "type": "MANUAL"
+            }
+          }
+        },
+        "nextAction": {
+          "name": "hw_loop_recipients",
+          "type": "LOOP_ON_ITEMS",
+          "displayName": "Loop through Recipients",
+          "settings": {
+            "items": "{{trigger['body']['recipients']}}"
+          },
+          "firstLoopAction": {
+            "name": "hw_email_parent",
+            "type": "PIECE",
+            "displayName": "Send Homework Notification",
+            "skip": false,
+            "valid": true,
+            "settings": {
+              "pieceName": "@puchoaistudio/tool-gmail",
+              "pieceVersion": "2.0.4",
+              "actionName": "send_email",
+              "input": {
+                "auth": "",
+                "to": "{{hw_loop_recipients['item']['parent_email'] || 'parent@school.com'}}",
+                "subject": "New Homework: {{trigger['body']['homework']['title']}} - {{trigger['body']['homework']['subject']}}",
+                "text": "Dear Parent,\n\nNew homework has been assigned for your child in {{trigger['body']['homework']['class']}}.\n\nTitle: {{trigger['body']['homework']['title']}}\nSubject: {{trigger['body']['homework']['subject']}}\nDescription: {{trigger['body']['homework']['description']}}\nAssigned By: {{trigger['body']['homework']['teacher']}}\nDue Date: {{trigger['body']['homework']['due_date']}}\n\nPlease assist your child in completing it on time.\n\nWarm regards,\nGreenwood Juniors Academy"
+              },
+              "propertySettings": {
+                "auth": {
+                  "type": "MANUAL"
+                },
+                "to": {
+                  "type": "MANUAL"
+                },
+                "subject": {
+                  "type": "MANUAL"
+                },
+                "text": {
+                  "type": "MANUAL"
+                }
+              }
+            },
+            "nextAction": null,
+            "errorHandlingOptions": {
+              "retryOnFailure": {
+                "value": false
+              },
+              "continueOnFailure": {
+                "value": true
+              }
+            }
+          },
+          "nextAction": {
+            "name": "hw_return_response",
+            "type": "PIECE",
+            "displayName": "Return Homework Upload Status",
+            "skip": false,
+            "valid": true,
+            "settings": {
+              "pieceName": "@puchoaistudio/tool-webhook",
+              "pieceVersion": "2.0.4",
+              "actionName": "return_response",
+              "input": {
+                "responseType": "json",
+                "respond": "stop",
+                "fields": {
+                  "success": true,
+                  "message": "Homework uploaded and parents notified successfully.",
+                  "title": "{{trigger['body']['homework']['title']}}",
+                  "class": "{{trigger['body']['homework']['class']}}",
+                  "recipients_count": "{{trigger['body']['recipients'].length}}"
+                }
+              },
+              "propertySettings": {
+                "responseType": {
+                  "type": "MANUAL"
+                },
+                "respond": {
+                  "type": "MANUAL"
+                },
+                "fields": {
+                  "type": "MANUAL",
+                  "schema": {
+                    "success": {
+                      "type": "BOOLEAN"
+                    },
+                    "message": {
+                      "type": "SHORT_TEXT"
+                    },
+                    "title": {
+                      "type": "SHORT_TEXT"
+                    },
+                    "class": {
+                      "type": "SHORT_TEXT"
+                    },
+                    "recipients_count": {
+                      "type": "NUMBER"
+                    }
+                  }
+                }
+              }
+            },
+            "nextAction": null
+          }
+        },
+        "errorHandlingOptions": {
+          "retryOnFailure": {
+            "value": true
+          },
+          "continueOnFailure": {
+            "value": false
+          }
+        }
+      }
+    },
+    "valid": true,
+    "agentIds": [],
+    "connectionIds": [],
+    "schemaVersion": "7"
+  },
+  "blogUrl": ""
+}

@@ -1,0 +1,207 @@
+{
+  "created": 1750360000000,
+  "updated": 1750360000000,
+  "name": "Fee_Recovery_Loop_Flow - greenwood-sms",
+  "description": "Triggered when admin runs fee recovery. Loops through all pending fee entries and sends overdue reminders to parents via Gmail.",
+  "tags": [
+    "Greenwood Juniors",
+    "Finance",
+    "Fees",
+    "Recovery",
+    "Parent Notifications"
+  ],
+  "pieces": [
+    "@puchoaistudio/tool-gmail",
+    "@puchoaistudio/tool-webhook"
+  ],
+  "template": {
+    "displayName": "Fee Recovery Loop Flow",
+    "trigger": {
+      "name": "trigger",
+      "type": "PIECE_TRIGGER",
+      "displayName": "Fee Recovery Webhook Listener",
+      "valid": true,
+      "settings": {
+        "pieceName": "@puchoaistudio/tool-webhook",
+        "pieceVersion": "2.0.4",
+        "triggerName": "catch_webhook",
+        "input": {
+          "authType": "none"
+        },
+        "propertySettings": {
+          "authType": {
+            "type": "MANUAL"
+          },
+          "authFields": {
+            "type": "MANUAL",
+            "schema": {}
+          },
+          "liveMarkdown": {
+            "type": "MANUAL"
+          },
+          "syncMarkdown": {
+            "type": "MANUAL"
+          },
+          "testMarkdown": {
+            "type": "MANUAL"
+          }
+        },
+        "sampleData": {}
+      },
+      "nextAction": {
+        "name": "fee_router",
+        "type": "ROUTER",
+        "displayName": "Check action = FEE_RECOVERY_AUTOMATION_LOOP",
+        "valid": true,
+        "settings": {
+          "executionType": "EXECUTE_FIRST_MATCH",
+          "branches": [
+            {
+              "name": "Fee Recovery Loop Branch",
+              "conditions": [
+                [
+                  {
+                    "operator": "TEXT_EXACTLY_MATCHES",
+                    "firstValue": "{{trigger['body']['action']}}",
+                    "secondValue": "FEE_RECOVERY_AUTOMATION_LOOP"
+                  }
+                ]
+              ]
+            }
+          ]
+        },
+        "children": [
+          {
+            "name": "fee_loop_entries",
+            "type": "LOOP_ON_ITEMS",
+            "displayName": "Loop through Pending Fee Entries",
+            "settings": {
+              "items": "{{trigger['body']['entries']}}"
+            },
+            "firstLoopAction": {
+              "name": "fee_skip_paid",
+              "type": "ROUTER",
+              "displayName": "Skip Already Paid?",
+              "valid": true,
+              "settings": {
+                "executionType": "EXECUTE_FIRST_MATCH",
+                "branches": [
+                  {
+                    "name": "Pending Only Branch",
+                    "conditions": [
+                      [
+                        {
+                          "operator": "TEXT_DOES_NOT_EXACTLY_MATCH",
+                          "firstValue": "{{fee_loop_entries['item']['status']}}",
+                          "secondValue": "Paid"
+                        }
+                      ]
+                    ]
+                  }
+                ]
+              },
+              "children": [
+                {
+                  "name": "fee_email_reminder",
+                  "type": "PIECE",
+                  "displayName": "Send Overdue Fee Reminder",
+                  "skip": false,
+                  "valid": true,
+                  "settings": {
+                    "pieceName": "@puchoaistudio/tool-gmail",
+                    "pieceVersion": "2.0.4",
+                    "actionName": "send_email",
+                    "input": {
+                      "auth": "",
+                      "to": "{{fee_loop_entries['item']['parent_email'] || 'parent@school.com'}}",
+                      "subject": "Overdue Fee Reminder: {{fee_loop_entries['item']['student_name']}} - Greenwood Juniors",
+                      "text": "Dear {{fee_loop_entries['item']['parent_name'] || 'Parent'}},\n\nThis is a reminder that fee payment is currently outstanding for your child:\n\nStudent: {{fee_loop_entries['item']['student_name']}}\nClass: {{fee_loop_entries['item']['class']}}\nFee Type: {{fee_loop_entries['item']['type']}}\nAmount Due: Rs. {{fee_loop_entries['item']['amount']}}\nDue Date: {{fee_loop_entries['item']['due_date']}}\nStatus: {{fee_loop_entries['item']['status']}}\n\nPlease make the payment at your earliest convenience through the Parent Portal or at the school office.\n\nTotal Pending Records: {{trigger['body']['total_pending']}}\n\nIgnoring this notice may result in late fee penalties.\n\nWarm regards,\nGreenwood Juniors Accounts Department"
+                    },
+                    "propertySettings": {
+                      "auth": {
+                        "type": "MANUAL"
+                      },
+                      "to": {
+                        "type": "MANUAL"
+                      },
+                      "subject": {
+                        "type": "MANUAL"
+                      },
+                      "text": {
+                        "type": "MANUAL"
+                      }
+                    }
+                  },
+                  "nextAction": null,
+                  "errorHandlingOptions": {
+                    "retryOnFailure": {
+                      "value": false
+                    },
+                    "continueOnFailure": {
+                      "value": true
+                    }
+                  }
+                }
+              ],
+              "nextAction": null
+            },
+            "nextAction": {
+              "name": "fee_return_response",
+              "type": "PIECE",
+              "displayName": "Return Recovery Status",
+              "skip": false,
+              "valid": true,
+              "settings": {
+                "pieceName": "@puchoaistudio/tool-webhook",
+                "pieceVersion": "2.0.4",
+                "actionName": "return_response",
+                "input": {
+                  "responseType": "json",
+                  "respond": "stop",
+                  "fields": {
+                    "success": true,
+                    "message": "Fee recovery reminders dispatched to all pending parents.",
+                    "total_pending": "{{trigger['body']['total_pending']}}",
+                    "grade_filter": "{{trigger['body']['grade_filter']}}"
+                  }
+                },
+                "propertySettings": {
+                  "responseType": {
+                    "type": "MANUAL"
+                  },
+                  "respond": {
+                    "type": "MANUAL"
+                  },
+                  "fields": {
+                    "type": "MANUAL",
+                    "schema": {
+                      "success": {
+                        "type": "BOOLEAN"
+                      },
+                      "message": {
+                        "type": "SHORT_TEXT"
+                      },
+                      "total_pending": {
+                        "type": "NUMBER"
+                      },
+                      "grade_filter": {
+                        "type": "SHORT_TEXT"
+                      }
+                    }
+                  }
+                }
+              },
+              "nextAction": null
+            }
+          }
+        ],
+        "nextAction": null
+      }
+    },
+    "valid": true,
+    "agentIds": [],
+    "connectionIds": [],
+    "schemaVersion": "7"
+  },
+  "blogUrl": ""
+}
