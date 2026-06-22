@@ -141,13 +141,14 @@ const dashboard = {
         });
 
         // Auto-update Maharashtra Board Subjects forcefully (Runs Once automatically)
-        if (!localStorage.getItem('mh_subjects_force_seeded_v2')) {
-            console.log("Updating to Maharashtra Board Subjects forcefully (v2)...");
-            localStorage.setItem('mh_subjects_force_seeded_v2', 'true');
+        if (!localStorage.getItem('mh_subjects_force_seeded_v3')) {
+            console.log("Updating to Maharashtra Board Subjects forcefully (v3)...");
+            localStorage.setItem('mh_subjects_force_seeded_v3', 'true');
             // First Delete existing
             await this.db('subjects', 'DELETE');
 
             const subjectMap = [
+                { classes: ['Playgroup'], subjects: ['English', 'Rhymes & Stories', 'General Awareness'] },
                 { classes: ['Nursery', 'LKG', 'UKG'], subjects: ['English', 'Mathematics', 'General Awareness', 'Rhymes & Stories'] },
                 { classes: ['1st', '2nd', '3rd', '4th', '5th'], subjects: ['English', 'Marathi', 'Hindi', 'Mathematics', 'Environmental Studies (EVS)'] },
                 { classes: ['6th', '7th', '8th'], subjects: ['English', 'Marathi', 'Hindi', 'Mathematics', 'General Science', 'History & Civics', 'Geography'] },
